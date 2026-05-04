@@ -1,0 +1,15 @@
+.vscode/**
+.vscode-test/**
+src/**
+test/**
+**/*.ts
+**/*.map
+.gitignore
+.eslintrc*
+tsconfig.json
+node_modules/**
+.aicb/**
+media/make_icon.py
+media/activity-icon.svg.bak
+**/.DS_Store
+*.vsix

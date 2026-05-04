@@ -1,0 +1,6 @@
+{
+    "aiContextBridge.killSwitchEngaged": false,
+    "aiContextBridge.autoPinDwellMinutes": 0.1,
+    "aiContextBridge.autoPinBackfillCount": 8,
+    "aiContextBridge.exportToAgentFiles": true
+}

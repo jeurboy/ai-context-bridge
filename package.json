@@ -1,0 +1,408 @@
+{
+  "name": "ai-context-bridge",
+  "displayName": "AI Context Bridge",
+  "description": "Shared blackboard memory and skill control center for multi-model AI workflows",
+  "version": "0.2.2",
+  "publisher": "jeurboy",
+  "license": "MIT",
+  "icon": "media/icon-128.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeurboy/ai-context-bridge.git"
+  },
+  "homepage": "https://github.com/jeurboy/ai-context-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/jeurboy/ai-context-bridge/issues"
+  },
+  "keywords": [
+    "ai",
+    "memory",
+    "blackboard",
+    "claude",
+    "gpt",
+    "gemini",
+    "agent",
+    "context",
+    "antigravity",
+    "cursor",
+    "windsurf"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "AI"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiContextBridge",
+          "title": "AI Context Bridge",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiContextBridge": [
+        {
+          "id": "aiContextBridge.skills",
+          "name": "Skills",
+          "icon": "$(checklist)",
+          "contextualTitle": "Skill Control Center"
+        },
+        {
+          "id": "aiContextBridge.pinned",
+          "name": "Pinned Files",
+          "icon": "$(pin)"
+        },
+        {
+          "id": "aiContextBridge.snapshots",
+          "name": "Snapshots",
+          "icon": "$(history)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aiContextBridge.openTimeline",
+        "title": "AI Context Bridge: Open Thought Timeline",
+        "icon": "$(timeline-view-icon)"
+      },
+      {
+        "command": "aiContextBridge.killSwitch",
+        "title": "AI Context Bridge: Global Kill Switch",
+        "icon": "$(stop-circle)"
+      },
+      {
+        "command": "aiContextBridge.forceSync",
+        "title": "AI Context Bridge: Force Sync",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "aiContextBridge.toggleSkill",
+        "title": "Toggle Skill Status",
+        "icon": "$(circle-large-outline)"
+      },
+      {
+        "command": "aiContextBridge.setSkillEnabled",
+        "title": "Set Skill: Enabled",
+        "icon": "$(pass-filled)"
+      },
+      {
+        "command": "aiContextBridge.setSkillDisabled",
+        "title": "Set Skill: Disabled",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "aiContextBridge.setSkillAsk",
+        "title": "Set Skill: Ask",
+        "icon": "$(question)"
+      },
+      {
+        "command": "aiContextBridge.pinFile",
+        "title": "AI Context Bridge: Pin File to Memory",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "aiContextBridge.unpinFile",
+        "title": "AI Context Bridge: Unpin File",
+        "icon": "$(pinned)"
+      },
+      {
+        "command": "aiContextBridge.addThought",
+        "title": "AI Context Bridge: Add Thought",
+        "icon": "$(comment-add)"
+      },
+      {
+        "command": "aiContextBridge.createSnapshot",
+        "title": "AI Context Bridge: Create Snapshot",
+        "icon": "$(save)"
+      },
+      {
+        "command": "aiContextBridge.restoreSnapshot",
+        "title": "Restore Snapshot",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "aiContextBridge.deleteSnapshot",
+        "title": "Delete Snapshot",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "aiContextBridge.registerSkill",
+        "title": "AI Context Bridge: Register Skill",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aiContextBridge.copyContext",
+        "title": "Copy Thought Context"
+      },
+      {
+        "command": "aiContextBridge.copyHandoffPrompt",
+        "title": "AI Context Bridge: Copy Handoff Prompt",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "aiContextBridge.bridgeNow",
+        "title": "AI Context Bridge: Bridge to Agent Files Now",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "aiContextBridge.rescanSpecs",
+        "title": "AI Context Bridge: Rescan Spec Files",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aiContextBridge.rescanSkills",
+        "title": "AI Context Bridge: Rescan Skills",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aiContextBridge.registerSkill",
+          "when": "view == aiContextBridge.skills",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aiContextBridge.rescanSkills",
+          "when": "view == aiContextBridge.skills",
+          "group": "navigation@2"
+        },
+        {
+          "command": "aiContextBridge.openTimeline",
+          "when": "view == aiContextBridge.skills",
+          "group": "navigation@3"
+        },
+        {
+          "command": "aiContextBridge.addThought",
+          "when": "view == aiContextBridge.skills",
+          "group": "navigation@4"
+        },
+        {
+          "command": "aiContextBridge.killSwitch",
+          "when": "view == aiContextBridge.skills",
+          "group": "navigation@9"
+        },
+        {
+          "command": "aiContextBridge.pinFile",
+          "when": "view == aiContextBridge.pinned",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aiContextBridge.copyHandoffPrompt",
+          "when": "view == aiContextBridge.pinned",
+          "group": "navigation@2"
+        },
+        {
+          "command": "aiContextBridge.rescanSpecs",
+          "when": "view == aiContextBridge.pinned",
+          "group": "navigation@3"
+        },
+        {
+          "command": "aiContextBridge.bridgeNow",
+          "when": "view == aiContextBridge.pinned",
+          "group": "navigation@4"
+        },
+        {
+          "command": "aiContextBridge.createSnapshot",
+          "when": "view == aiContextBridge.snapshots",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "aiContextBridge.setSkillEnabled",
+          "when": "view == aiContextBridge.skills && viewItem == skill",
+          "group": "inline@1"
+        },
+        {
+          "command": "aiContextBridge.setSkillAsk",
+          "when": "view == aiContextBridge.skills && viewItem == skill",
+          "group": "inline@2"
+        },
+        {
+          "command": "aiContextBridge.setSkillDisabled",
+          "when": "view == aiContextBridge.skills && viewItem == skill",
+          "group": "inline@3"
+        },
+        {
+          "command": "aiContextBridge.unpinFile",
+          "when": "view == aiContextBridge.pinned && viewItem == pinnedFile",
+          "group": "inline"
+        },
+        {
+          "command": "aiContextBridge.restoreSnapshot",
+          "when": "view == aiContextBridge.snapshots && viewItem == snapshot",
+          "group": "inline@1"
+        },
+        {
+          "command": "aiContextBridge.deleteSnapshot",
+          "when": "view == aiContextBridge.snapshots && viewItem == snapshot",
+          "group": "inline@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "aiContextBridge.pinFile",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "aiContextBridge.skills",
+        "contents": "No skills registered yet. Skills are AI capabilities you grant — like shell access, file write, or web fetch.\n[Register a skill](command:aiContextBridge.registerSkill)\n[Rescan skills](command:aiContextBridge.rescanSkills)\n[Add a thought](command:aiContextBridge.addThought)\n[Open thought timeline](command:aiContextBridge.openTimeline)"
+      },
+      {
+        "view": "aiContextBridge.pinned",
+        "contents": "No files pinned to memory.\nSpec files (CLAUDE.md, AGENTS.md, .cursorrules, README, ARCHITECTURE.md, docs/spec) are auto-imported.\n[Pin current file](command:aiContextBridge.pinFile)\n[Rescan spec files](command:aiContextBridge.rescanSpecs)\n[Copy handoff prompt](command:aiContextBridge.copyHandoffPrompt)"
+      },
+      {
+        "view": "aiContextBridge.snapshots",
+        "contents": "No snapshots yet.\nSnapshots save the entire blackboard state so you can roll back if an agent corrupts it.\n[Create snapshot](command:aiContextBridge.createSnapshot)"
+      }
+    ],
+    "configuration": {
+      "title": "AI Context Bridge",
+      "properties": {
+        "aiContextBridge.storagePath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to state.json. Empty = workspace/.aicb/state.json"
+        },
+        "aiContextBridge.autoSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically persist state changes to disk"
+        },
+        "aiContextBridge.killSwitchEngaged": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, all skills behave as DISABLED regardless of individual status"
+        },
+        "aiContextBridge.autoDiscoverSkills": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-register project skills from .claude/skills/**/SKILL.md and .claude/commands/**/*.md in the workspace. User-set status is never overridden."
+        },
+        "aiContextBridge.autoPinRecentEdits": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-pin a file when it is saved"
+        },
+        "aiContextBridge.autoPinDwellMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "description": "Auto-pin a file after it has been the active editor for this many minutes. Set to 0 to disable dwell-based pinning."
+        },
+        "aiContextBridge.autoPinExpireMinutes": {
+          "type": "number",
+          "default": 60,
+          "minimum": 1,
+          "description": "Auto-pinned files expire after this many minutes of inactivity. Manual pins never expire."
+        },
+        "aiContextBridge.autoPinBackfillCount": {
+          "type": "number",
+          "default": 8,
+          "minimum": 0,
+          "description": "When the extension activates and the pinned-files list is empty, scan the workspace and auto-pin this many most-recently modified files. Set to 0 to disable backfill."
+        },
+        "aiContextBridge.autoImportSpecFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-detect and pin known agent/spec files (CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, README, ARCHITECTURE.md, docs/spec/**). These are bridged across agents."
+        },
+        "aiContextBridge.specPatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [
+            "CLAUDE.md",
+            "AGENTS.md",
+            "GEMINI.md",
+            "AGENT.md",
+            ".cursorrules",
+            ".cursor/rules/**/*.{md,mdc}",
+            ".windsurfrules",
+            ".github/copilot-instructions.md",
+            "README.md",
+            "README.*.md",
+            "ARCHITECTURE.md",
+            "SPEC.md",
+            "SPECIFICATION.md",
+            "PLAN.md",
+            "ROADMAP.md",
+            "plans/**/*.md",
+            "plan/**/*.md",
+            "roadmap/**/*.md",
+            "roadmaps/**/*.md",
+            "proposals/**/*.md",
+            "rfcs/**/*.md",
+            "prd/**/*.md",
+            "prds/**/*.md",
+            "docs/SPEC.md",
+            "docs/ARCHITECTURE.md",
+            "docs/spec/**/*.md",
+            "docs/specs/**/*.md",
+            "docs/architecture/**/*.md",
+            "docs/design/**/*.md",
+            "docs/plans/**/*.md",
+            "docs/rfcs/**/*.md",
+            ".aicb/spec/**/*.md"
+          ],
+          "description": "Glob patterns of files treated as 'spec / context' (Spec section in Pinned Files, included in Handoff prompt)."
+        },
+        "aiContextBridge.exportToAgentFiles": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-write a managed handoff section into agent instruction files (CLAUDE.md, AGENTS.md, .cursorrules, etc.) so any AI that reads its own convention file gets the bridge automatically. Updates between AICB:BEGIN and AICB:END markers only."
+        },
+        "aiContextBridge.agentFiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [
+            "CLAUDE.md",
+            "AGENTS.md",
+            "AGENT.md",
+            "GEMINI.md",
+            ".cursorrules",
+            ".windsurfrules",
+            ".github/copilot-instructions.md"
+          ],
+          "description": "Paths (relative to workspace root) where the handoff bridge is exported when 'exportToAgentFiles' is on."
+        },
+        "aiContextBridge.agentFilesOnlyExisting": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, only update agent files that already exist (don't auto-create them)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc --noEmit",
+    "package": "vsce package --no-dependencies",
+    "package:pre": "vsce package --pre-release --no-dependencies",
+    "publish": "vsce publish --no-dependencies",
+    "publish:pre": "vsce publish --pre-release --no-dependencies",
+    "clean": "rm -rf out *.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.1",
+    "typescript": "^5.3.0"
+  }
+}
