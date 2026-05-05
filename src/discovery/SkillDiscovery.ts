@@ -13,7 +13,14 @@ interface DiscoveredSkill {
   description?: string;
   status: SkillStatus;
   sourceUri: string;
-  origin: 'claude-skill' | 'claude-command' | 'cursor-rule' | 'cursor-skill' | 'gemini-skill';
+  origin:
+    | 'claude-skill'
+    | 'claude-command'
+    | 'cursor-rule'
+    | 'cursor-skill'
+    | 'gemini-skill'
+    | 'codex-skill'
+    | 'agent-skill';
   scope: SkillScope;
 }
 
@@ -38,7 +45,7 @@ export class SkillDiscovery implements vscode.Disposable {
       vscode.workspace.onDidChangeWorkspaceFolders(() => void this.runScan()),
     );
     const fsWatcher = vscode.workspace.createFileSystemWatcher(
-      '{**/.claude/skills/**/SKILL.md,**/.claude/commands/**/*.md,**/.cursor/skills/**/*.md,**/.cursor/rules/**/*.{md,mdc},**/.gemini/skills/**/*.md}',
+      '{**/.claude/skills/**/SKILL.md,**/.claude/commands/**/*.md,**/.cursor/skills/**/*.md,**/.cursor/rules/**/*.{md,mdc},**/.gemini/skills/**/*.md,**/.codex/skills/**/SKILL.md,**/.agent/skills/**/SKILL.md}',
     );
     fsWatcher.onDidCreate(() => void this.runScan());
     fsWatcher.onDidDelete(() => void this.runScan());
@@ -123,6 +130,8 @@ export class SkillDiscovery implements vscode.Disposable {
       out.push(...(await this.scanClaudeCommands(folder)));
       out.push(...(await this.scanCursorSkills(folder)));
       out.push(...(await this.scanGeminiSkills(folder)));
+      out.push(...(await this.scanGenericFolderSkills(folder, '.codex', 'codex-skill')));
+      out.push(...(await this.scanGenericFolderSkills(folder, '.agent', 'agent-skill')));
     }
     if (this.scanGlobalEnabled()) {
       out.push(...(await this.scanGlobalSkills()));
@@ -184,6 +193,43 @@ export class SkillDiscovery implements vscode.Disposable {
       out.push(await buildSkill(file, base, 'gemini-skill', 'global'));
     }
 
+    // ~/.codex/skills/<folder>/SKILL.md (or $CODEX_HOME/skills) and ~/.agent/skills/<folder>/SKILL.md
+    const codexHome = process.env.CODEX_HOME ?? path.join(home, '.codex');
+    const genericRoots: { skillsRoot: string; origin: 'codex-skill' | 'agent-skill' }[] = [
+      { skillsRoot: path.join(codexHome, 'skills'), origin: 'codex-skill' },
+      { skillsRoot: path.join(home, '.agent', 'skills'), origin: 'agent-skill' },
+    ];
+    for (const { skillsRoot, origin } of genericRoots) {
+      for (const dir of await listSubdirs(skillsRoot)) {
+        const skillFile = path.join(skillsRoot, dir, 'SKILL.md');
+        if (!(await fileExists(skillFile))) continue;
+        if (await isAicbGenerated(skillFile)) continue;
+        out.push(await buildSkill(skillFile, dir, origin, 'global', dir));
+      }
+    }
+
+    return out;
+  }
+
+  private async scanGenericFolderSkills(
+    folder: vscode.WorkspaceFolder,
+    rootDir: string,
+    origin: 'codex-skill' | 'agent-skill',
+  ): Promise<DiscoveredSkill[]> {
+    const pattern = new vscode.RelativePattern(folder, `${rootDir}/skills/**/SKILL.md`);
+    const uris = await vscode.workspace.findFiles(pattern, undefined, 200);
+    const out: DiscoveredSkill[] = [];
+    for (const uri of uris) {
+      if (await isAicbGenerated(uri.fsPath)) continue;
+      const skillFolder = path.basename(path.dirname(uri.fsPath));
+      const id = `${origin}.${skillFolder}`;
+      const meta = await readMarkdownMeta(uri.fsPath);
+      const name = meta.title ?? skillFolder;
+      const description = meta.description;
+      const status: SkillStatus =
+        RISKY.test(skillFolder) || (description && RISKY.test(description)) ? 'ASK' : 'ENABLED';
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin, scope: 'workspace' });
+    }
     return out;
   }
 

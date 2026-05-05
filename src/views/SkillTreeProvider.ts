@@ -10,7 +10,7 @@ export class SkillTreeProvider implements vscode.TreeDataProvider<Node> {
 
   constructor(private readonly memory: MemoryManager) {
     memory.onDidChange((c) => {
-      if (c.kind === 'skill' || c.kind === 'killSwitch' || c.kind === 'bulk') {
+      if (c.kind === 'skill' || c.kind === 'bulk') {
         this.refresh();
       }
     });
@@ -26,13 +26,12 @@ export class SkillTreeProvider implements vscode.TreeDataProvider<Node> {
 
   async getChildren(parent?: Node): Promise<Node[]> {
     const state = this.memory.getState();
-    const killed = state.killSwitchEngaged;
     const skills = state.skills.slice().sort((a, b) => a.name.localeCompare(b.name));
 
     if (parent instanceof GroupNode) {
       return skills
         .filter((s) => scopeOf(s) === parent.scope)
-        .map((s) => new SkillNode(s, killed));
+        .map((s) => new SkillNode(s));
     }
 
     const hasWorkspace = skills.some((s) => scopeOf(s) === 'workspace');
@@ -45,7 +44,7 @@ export class SkillTreeProvider implements vscode.TreeDataProvider<Node> {
       ];
     }
 
-    return skills.map((s) => new SkillNode(s, killed));
+    return skills.map((s) => new SkillNode(s));
   }
 }
 
@@ -71,30 +70,20 @@ export class GroupNode {
 }
 
 export class SkillNode {
-  constructor(
-    readonly skill: Skill,
-    readonly killed: boolean,
-  ) {}
+  constructor(readonly skill: Skill) {}
 
   toTreeItem(): vscode.TreeItem {
     const item = new vscode.TreeItem(this.skill.name, vscode.TreeItemCollapsibleState.None);
     item.id = this.skill.id;
     item.contextValue = 'skill';
-    item.description = effectiveLabel(this.skill.status, this.killed);
-    item.tooltip = buildTooltip(this.skill, this.killed);
-    item.iconPath = statusIcon(this.skill.status, this.killed);
+    item.description = this.skill.status;
+    item.tooltip = buildTooltip(this.skill);
+    item.iconPath = statusIcon(this.skill.status);
     return item;
   }
 }
 
-function effectiveLabel(status: SkillStatus, killed: boolean): string {
-  if (killed) {
-    return 'KILL SWITCH';
-  }
-  return status;
-}
-
-function buildTooltip(skill: Skill, killed: boolean): vscode.MarkdownString {
+function buildTooltip(skill: Skill): vscode.MarkdownString {
   const md = new vscode.MarkdownString(undefined, true);
   md.isTrusted = false;
   md.appendMarkdown(`**${skill.name}**\n\n`);
@@ -102,9 +91,6 @@ function buildTooltip(skill: Skill, killed: boolean): vscode.MarkdownString {
     md.appendMarkdown(`${skill.description}\n\n`);
   }
   md.appendMarkdown(`- Status: \`${skill.status}\`\n`);
-  if (killed) {
-    md.appendMarkdown(`- Kill switch active — effective status \`DISABLED\`\n`);
-  }
   if (skill.scope) {
     md.appendMarkdown(`- Scope: \`${skill.scope}\`\n`);
   }
@@ -118,10 +104,7 @@ function buildTooltip(skill: Skill, killed: boolean): vscode.MarkdownString {
   return md;
 }
 
-function statusIcon(status: SkillStatus, killed: boolean): vscode.ThemeIcon {
-  if (killed) {
-    return new vscode.ThemeIcon('circle-slash', new vscode.ThemeColor('errorForeground'));
-  }
+function statusIcon(status: SkillStatus): vscode.ThemeIcon {
   switch (status) {
     case 'ENABLED':
       return new vscode.ThemeIcon('pass-filled', new vscode.ThemeColor('testing.iconPassed'));

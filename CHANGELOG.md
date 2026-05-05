@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 — 2026-05-05
+
+- **Quick Actions view** — new first-stop sidebar panel with big buttons for `Sync All Now`, `Target Settings`, and `Copy Bootstrap Prompt`.
+- **Unified Target Settings** — one picker now configures skill mirror hosts, context bridge files, and default MCP copy targets together. Existing skill/context commands route into the unified picker, and MCP copy/sync pickers preselect `aiContextBridge.mcpCopyTargets`.
+- **Context block repair** — generated AICB blocks now carry checksum metadata. `Sync All Now` collapses duplicate managed blocks back to one fresh block and reports repaired/manual-overwritten counts; background auto-sync preserves checksum-mismatched blocks instead of silently overwriting user edits inside the managed area.
+- **MCP Servers toolbar cleanup** — removed the generic `Sync All Now` action from the MCP Servers title bar so the panel stays focused on `Rescan` and `Sync All to Kilocode`.
+- **Bootstrap prompt** — copy a paths-only handoff for CLI/file-reading agents that should read live context, skill, and MCP files directly instead of receiving inlined excerpts.
+- **Version metadata** — package and lockfile are now aligned at `0.6.0`.
+
 ## 0.4.0 — 2026-05-05
 
 - **MCP Servers panel** — new sidebar view that scans MCP server configs across every host you have installed:

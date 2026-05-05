@@ -2,7 +2,7 @@
   "name": "ai-context-bridge",
   "displayName": "AI Context Bridge",
   "description": "Shared blackboard memory and skill control center for multi-model AI workflows",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "publisher": "jeurboy",
   "license": "MIT",
   "icon": "media/icon-128.png",
@@ -51,6 +51,14 @@
     "views": {
       "aiContextBridge": [
         {
+          "id": "aiContextBridge.quickActions",
+          "name": "Quick Actions",
+          "type": "webview",
+          "icon": "$(zap)",
+          "contextualTitle": "Quick Actions",
+          "initialSize": 1
+        },
+        {
           "id": "aiContextBridge.skills",
           "name": "Skills",
           "icon": "$(checklist)",
@@ -81,34 +89,9 @@
         "icon": "$(timeline-view-icon)"
       },
       {
-        "command": "aiContextBridge.killSwitch",
-        "title": "AI Context Bridge: Global Kill Switch",
-        "icon": "$(stop-circle)"
-      },
-      {
         "command": "aiContextBridge.forceSync",
         "title": "AI Context Bridge: Force Sync",
         "icon": "$(sync)"
-      },
-      {
-        "command": "aiContextBridge.toggleSkill",
-        "title": "Toggle Skill Status",
-        "icon": "$(circle-large-outline)"
-      },
-      {
-        "command": "aiContextBridge.setSkillEnabled",
-        "title": "Set Skill: Enabled",
-        "icon": "$(pass-filled)"
-      },
-      {
-        "command": "aiContextBridge.setSkillDisabled",
-        "title": "Set Skill: Disabled",
-        "icon": "$(circle-slash)"
-      },
-      {
-        "command": "aiContextBridge.setSkillAsk",
-        "title": "Set Skill: Ask",
-        "icon": "$(question)"
       },
       {
         "command": "aiContextBridge.pinFile",
@@ -141,11 +124,6 @@
         "icon": "$(trash)"
       },
       {
-        "command": "aiContextBridge.registerSkill",
-        "title": "AI Context Bridge: Register Skill",
-        "icon": "$(add)"
-      },
-      {
         "command": "aiContextBridge.copyContext",
         "title": "Copy Thought Context"
       },
@@ -155,9 +133,19 @@
         "icon": "$(clippy)"
       },
       {
+        "command": "aiContextBridge.copyBootstrapPrompt",
+        "title": "AI Context Bridge: Copy Bootstrap Prompt (manual read)",
+        "icon": "$(file-symlink-file)"
+      },
+      {
         "command": "aiContextBridge.bridgeNow",
-        "title": "AI Context Bridge: Bridge to Agent Files Now",
-        "icon": "$(arrow-swap)"
+        "title": "AI Context Bridge: Sync All Now (context + skills + MCP rescan)",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "aiContextBridge.syncAllNow",
+        "title": "AI Context Bridge: Sync All Now (context + skills + MCP rescan)",
+        "icon": "$(sync)"
       },
       {
         "command": "aiContextBridge.rescanSpecs",
@@ -188,14 +176,29 @@
         "command": "aiContextBridge.syncAllToKilocode",
         "title": "AI Context Bridge: Sync All to Kilocode (MCP + Skills + Context)",
         "icon": "$(rocket)"
+      },
+      {
+        "command": "aiContextBridge.configureTargets",
+        "title": "AI Context Bridge: Configure Targets…",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "aiContextBridge.configureSkillMirrorHosts",
+        "title": "AI Context Bridge: Configure Skill Mirror Targets…",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "aiContextBridge.configureContextHosts",
+        "title": "AI Context Bridge: Configure Context Bridge Targets…",
+        "icon": "$(settings-gear)"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "aiContextBridge.registerSkill",
-          "when": "view == aiContextBridge.skills",
-          "group": "navigation@1"
+          "command": "aiContextBridge.syncAllNow",
+          "when": "view == aiContextBridge.pinned || view == aiContextBridge.snapshots",
+          "group": "navigation@0"
         },
         {
           "command": "aiContextBridge.rescanSkills",
@@ -205,17 +208,12 @@
         {
           "command": "aiContextBridge.openTimeline",
           "when": "view == aiContextBridge.skills",
-          "group": "navigation@3"
+          "group": "1_thoughts@1"
         },
         {
           "command": "aiContextBridge.addThought",
           "when": "view == aiContextBridge.skills",
-          "group": "navigation@4"
-        },
-        {
-          "command": "aiContextBridge.killSwitch",
-          "when": "view == aiContextBridge.skills",
-          "group": "navigation@9"
+          "group": "1_thoughts@2"
         },
         {
           "command": "aiContextBridge.pinFile",
@@ -223,24 +221,24 @@
           "group": "navigation@1"
         },
         {
-          "command": "aiContextBridge.copyHandoffPrompt",
-          "when": "view == aiContextBridge.pinned",
-          "group": "navigation@2"
-        },
-        {
           "command": "aiContextBridge.rescanSpecs",
           "when": "view == aiContextBridge.pinned",
-          "group": "navigation@3"
-        },
-        {
-          "command": "aiContextBridge.bridgeNow",
-          "when": "view == aiContextBridge.pinned",
-          "group": "navigation@4"
+          "group": "1_rescan@1"
         },
         {
           "command": "aiContextBridge.mirrorSkillsNow",
           "when": "view == aiContextBridge.skills",
-          "group": "navigation@5"
+          "group": "2_mirror@1"
+        },
+        {
+          "command": "aiContextBridge.configureTargets",
+          "when": "view == aiContextBridge.skills",
+          "group": "2_mirror@2"
+        },
+        {
+          "command": "aiContextBridge.configureTargets",
+          "when": "view == aiContextBridge.pinned",
+          "group": "1_rescan@2"
         },
         {
           "command": "aiContextBridge.createSnapshot",
@@ -259,21 +257,6 @@
         }
       ],
       "view/item/context": [
-        {
-          "command": "aiContextBridge.setSkillEnabled",
-          "when": "view == aiContextBridge.skills && viewItem == skill",
-          "group": "inline@1"
-        },
-        {
-          "command": "aiContextBridge.setSkillAsk",
-          "when": "view == aiContextBridge.skills && viewItem == skill",
-          "group": "inline@2"
-        },
-        {
-          "command": "aiContextBridge.setSkillDisabled",
-          "when": "view == aiContextBridge.skills && viewItem == skill",
-          "group": "inline@3"
-        },
         {
           "command": "aiContextBridge.unpinFile",
           "when": "view == aiContextBridge.pinned && viewItem == pinnedFile",
@@ -301,12 +284,102 @@
           "when": "resourceScheme == file",
           "group": "navigation"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "aiContextBridge.addThought",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.bridgeNow",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.syncAllNow",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.configureTargets",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.configureContextHosts",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.configureSkillMirrorHosts",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.copyContext",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.copyHandoffPrompt",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.copyBootstrapPrompt",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.copyMcpServer",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.createSnapshot",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.deleteSnapshot",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.forceSync",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.mirrorSkillsNow",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.openTimeline",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.pinFile",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.rescanMcp",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.rescanSkills",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.rescanSpecs",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.restoreSnapshot",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.syncAllToKilocode",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.unpinFile",
+          "when": "false"
+        }
       ]
     },
     "viewsWelcome": [
       {
         "view": "aiContextBridge.skills",
-        "contents": "No skills registered yet. Skills are AI capabilities you grant — like shell access, file write, or web fetch.\n[Register a skill](command:aiContextBridge.registerSkill)\n[Rescan skills](command:aiContextBridge.rescanSkills)\n[Add a thought](command:aiContextBridge.addThought)\n[Open thought timeline](command:aiContextBridge.openTimeline)"
+        "contents": "No skills discovered yet. Skills are auto-detected from .claude/skills/, .cursor/, .gemini/, .codex/, .agent/ — both workspace and (when enabled) global ~/.claude/, ~/.cursor/, etc.\n[Rescan skills](command:aiContextBridge.rescanSkills)\n[Open thought timeline](command:aiContextBridge.openTimeline)"
       },
       {
         "view": "aiContextBridge.pinned",
@@ -333,11 +406,6 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically persist state changes to disk"
-        },
-        "aiContextBridge.killSwitchEngaged": {
-          "type": "boolean",
-          "default": false,
-          "description": "When true, all skills behave as DISABLED regardless of individual status"
         },
         "aiContextBridge.autoDiscoverSkills": {
           "type": "boolean",
@@ -379,7 +447,9 @@
         },
         "aiContextBridge.specPatterns": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [
             "CLAUDE.md",
             "AGENTS.md",
@@ -419,11 +489,13 @@
         "aiContextBridge.exportToAgentFiles": {
           "type": "boolean",
           "default": false,
-          "description": "Auto-write a managed handoff section into agent instruction files (CLAUDE.md, AGENTS.md, .cursorrules, etc.) so any AI that reads its own convention file gets the bridge automatically. Updates between AICB:BEGIN and AICB:END markers only."
+          "description": "Auto-write a managed handoff section into agent instruction files (CLAUDE.md, AGENTS.md, .cursorrules, etc.) so any AI that reads its own convention file gets the bridge automatically. Updates between AICB:BEGIN and AICB:END markers only; Sync All repairs duplicate managed blocks."
         },
         "aiContextBridge.agentFiles": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [
             "CLAUDE.md",
             "AGENTS.md",
@@ -433,9 +505,11 @@
             ".windsurfrules",
             ".github/copilot-instructions.md",
             ".kilocoderules",
-            ".kilocode/rules/aicb.md"
+            ".kilocode/rules/aicb.md",
+            ".agent/AGENTS.md",
+            ".agent/rules/aicb.md"
           ],
-          "description": "Paths (relative to workspace root) where the handoff bridge is exported when 'exportToAgentFiles' is on."
+          "description": "Paths where the handoff bridge is exported when 'exportToAgentFiles' is on. Workspace-relative by default; absolute paths are written as-is, and entries starting with '~/' or '$CODEX_HOME/' resolve under the user's home / Codex home (e.g. '~/.codex/AGENTS.md' for Codex global guidance)."
         },
         "aiContextBridge.agentFilesOnlyExisting": {
           "type": "boolean",
@@ -446,6 +520,42 @@
           "type": "boolean",
           "default": false,
           "description": "Mirror Claude skills (.claude/skills/**/SKILL.md, .claude/commands/**/*.md) into .cursor/rules/aicb-*.mdc and .gemini/skills/aicb-*.md so other agents can read the same instructions. Generated files carry an AICB:GENERATED marker, are pruned when the source is deleted, and never overwrite hand-authored files at the same path. Source of truth stays in .claude/."
+        },
+        "aiContextBridge.skillMirrorHosts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "cursor",
+              "gemini",
+              "claude",
+              "kilocode",
+              "codex",
+              "agent"
+            ]
+          },
+          "default": [
+            "cursor",
+            "gemini",
+            "claude",
+            "kilocode",
+            "codex",
+            "agent"
+          ],
+          "description": "Per-host filter for skill mirroring. Only hosts in this list receive mirrored skills when 'mirrorSkillsToOtherAgents' is on. Use 'AI Context Bridge: Configure Targets…' to choose skill, context, and MCP targets together."
+        },
+        "aiContextBridge.mcpCopyTargets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Default MCP config targets preselected when copying MCP servers. Use 'AI Context Bridge: Configure Targets…' to choose them together with skill and context targets."
+        },
+        "aiContextBridge.mirrorGlobalSkills": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also mirror user-global skills (~/.claude/skills/, ~/.gemini/skills/, etc.) cross-agent at the GLOBAL level — writes into ~/.cursor/rules/, ~/.gemini/skills/, ~/.kilocode/skills/, ~/.codex/skills/, ~/.agent/skills/ so a skill installed once is visible to every agent in every project. Off by default. Set in User scope so it applies everywhere."
         }
       }
     }

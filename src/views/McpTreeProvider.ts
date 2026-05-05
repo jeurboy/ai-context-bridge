@@ -12,6 +12,8 @@ const HOST_LABEL: Record<McpHost, string> = {
   windsurf: 'Windsurf',
   vscode: 'VS Code (Copilot)',
   kilocode: 'Kilocode',
+  codex: 'Codex',
+  agent: 'Agent (.agent)',
 };
 
 const HOST_ORDER: McpHost[] = [
@@ -22,6 +24,8 @@ const HOST_ORDER: McpHost[] = [
   'windsurf',
   'vscode',
   'kilocode',
+  'codex',
+  'agent',
 ];
 
 const SECRET_KEY = /(KEY|TOKEN|SECRET|PASS|PASSWORD|CREDENTIAL|API)/i;

@@ -16,9 +16,6 @@ export class HITLManager {
   constructor(private readonly memory: MemoryManager) {}
 
   async authorize(req: AskRequest): Promise<AskDecision> {
-    if (this.memory.getState().killSwitchEngaged) {
-      return 'deny';
-    }
     const status = this.memory.effectiveStatus(req.skillId);
     if (status === 'DISABLED') {
       return 'deny';

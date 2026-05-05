@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { MemoryManager } from '../memory/MemoryManager';
@@ -6,10 +7,16 @@ import { Skill } from '../memory/types';
 
 const GENERATED_MARKER = 'AICB:GENERATED';
 
+export type MirrorHost = 'cursor' | 'gemini' | 'claude' | 'kilocode' | 'codex' | 'agent';
+
 interface AdapterTarget {
-  /** Workspace-relative directory to write generated files into. */
-  dir: string;
-  /** Filename builder: returns just the filename (no directory). May contain a subpath. */
+  /** Host this target represents. Filtered against aiContextBridge.skillMirrorHosts. */
+  host: MirrorHost;
+  /** Workspace-relative directory for workspace-scope skills. */
+  workspaceDir: string;
+  /** Absolute directory under user home for global-scope skills. */
+  globalDir: string;
+  /** Filename builder: returns the filename (or subpath) inside the chosen directory. */
   filename: (skill: Skill) => string;
   /** Format the body. Includes the generated-marker comment header. */
   format: (skill: Skill, sourceBody: string) => string;
@@ -19,38 +26,71 @@ interface AdapterTarget {
   prunePrefix?: string;
 }
 
+const HOME = os.homedir();
+const CODEX_HOME = process.env.CODEX_HOME ?? path.join(HOME, '.codex');
+
 const TARGETS: AdapterTarget[] = [
   {
-    dir: '.cursor/rules',
+    host: 'cursor',
+    workspaceDir: '.cursor/rules',
+    globalDir: path.join(HOME, '.cursor', 'rules'),
     filename: (s) => `aicb-${slug(s.id)}.mdc`,
     format: (s, body) => formatCursor(s, body),
     forOrigins: ['claude-skill', 'claude-command', 'gemini-skill'],
   },
   {
-    dir: '.gemini/skills',
+    host: 'gemini',
+    workspaceDir: '.gemini/skills',
+    globalDir: path.join(HOME, '.gemini', 'skills'),
     filename: (s) => `aicb-${slug(s.id)}.md`,
     format: (s, body) => formatGeneric(s, body, 'gemini'),
     forOrigins: ['claude-skill', 'claude-command'],
   },
   {
-    dir: '.claude/commands',
+    host: 'claude',
+    workspaceDir: '.claude/commands',
+    globalDir: path.join(HOME, '.claude', 'commands'),
     filename: (s) => `aicb-${slug(s.id)}.md`,
     format: (s, body) => formatGeneric(s, body, 'claude'),
     forOrigins: ['gemini-skill'],
   },
   {
-    dir: '.kilocode/skills',
+    host: 'kilocode',
+    workspaceDir: '.kilocode/skills',
+    globalDir: path.join(HOME, '.kilocode', 'skills'),
     filename: (s) => path.join(`aicb-${slug(s.id)}`, 'SKILL.md'),
     format: (s, body) => formatGeneric(s, body, 'kilocode'),
-    forOrigins: ['claude-skill', 'claude-command', 'gemini-skill'],
+    forOrigins: ['claude-skill', 'claude-command', 'gemini-skill', 'codex-skill', 'agent-skill'],
+    prunePrefix: 'aicb-',
+  },
+  {
+    host: 'codex',
+    workspaceDir: '.codex/skills',
+    globalDir: path.join(CODEX_HOME, 'skills'),
+    filename: (s) => path.join(`aicb-${slug(s.id)}`, 'SKILL.md'),
+    format: (s, body) => formatGeneric(s, body, 'codex'),
+    forOrigins: ['claude-skill', 'claude-command', 'gemini-skill', 'agent-skill'],
+    prunePrefix: 'aicb-',
+  },
+  {
+    host: 'agent',
+    workspaceDir: '.agent/skills',
+    globalDir: path.join(HOME, '.agent', 'skills'),
+    filename: (s) => path.join(`aicb-${slug(s.id)}`, 'SKILL.md'),
+    format: (s, body) => formatGeneric(s, body, 'agent'),
+    forOrigins: ['claude-skill', 'claude-command', 'gemini-skill', 'codex-skill'],
     prunePrefix: 'aicb-',
   },
 ];
+
+const ALL_HOSTS: MirrorHost[] = ['cursor', 'gemini', 'claude', 'kilocode', 'codex', 'agent'];
 
 const MIRRORABLE_ORIGINS: ReadonlySet<NonNullable<Skill['origin']>> = new Set([
   'claude-skill',
   'claude-command',
   'gemini-skill',
+  'codex-skill',
+  'agent-skill',
 ]);
 
 export class SkillAdapterWriter implements vscode.Disposable {
@@ -62,12 +102,16 @@ export class SkillAdapterWriter implements vscode.Disposable {
   start(): void {
     this.disposables.push(
       this.memory.onDidChange((c) => {
-        if (c.kind === 'skill' || c.kind === 'killSwitch' || c.kind === 'bulk') {
+        if (c.kind === 'skill' || c.kind === 'bulk') {
           this.scheduleFlush();
         }
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('aiContextBridge.mirrorSkillsToOtherAgents')) {
+        if (
+          e.affectsConfiguration('aiContextBridge.mirrorSkillsToOtherAgents') ||
+          e.affectsConfiguration('aiContextBridge.skillMirrorHosts') ||
+          e.affectsConfiguration('aiContextBridge.mirrorGlobalSkills')
+        ) {
           this.scheduleFlush();
         }
       }),
@@ -76,8 +120,14 @@ export class SkillAdapterWriter implements vscode.Disposable {
 
   private cfg() {
     const c = vscode.workspace.getConfiguration('aiContextBridge');
+    const rawHosts = c.get<string[]>('skillMirrorHosts', ALL_HOSTS);
+    const hosts = new Set<MirrorHost>(
+      ALL_HOSTS.filter((h) => rawHosts.includes(h)),
+    );
     return {
       enabled: c.get<boolean>('mirrorSkillsToOtherAgents', false),
+      includeGlobal: c.get<boolean>('mirrorGlobalSkills', false),
+      hosts,
     };
   }
 
@@ -106,22 +156,38 @@ export class SkillAdapterWriter implements vscode.Disposable {
     if (!root) {
       return { written, skipped, pruned };
     }
+    const activeTargets = TARGETS.filter((t) => cfg.hosts.has(t.host));
 
-    // Mirror only known origins. Each target opts in to specific origins via forOrigins
-    // so a skill is never mirrored back into its own agent's directory (avoids loops).
+    // Skills are mirrored at the SAME scope as their source:
+    //   workspace skill   → workspace agent dirs (.cursor/rules, .gemini/skills, …)
+    //   global    skill   → user-global agent dirs (~/.cursor/rules, ~/.gemini/skills, …)
+    // This way a skill installed once at ~/.claude/skills/foo becomes visible to every
+    // agent in every project, without polluting individual workspaces.
     const mirrorable = this.memory
       .getState()
-      .skills.filter(
-        (s) =>
-          s.sourceUri &&
-          s.origin &&
-          MIRRORABLE_ORIGINS.has(s.origin) &&
-          (s.scope ?? 'workspace') === 'workspace',
-      );
+      .skills.filter((s) => {
+        if (!s.sourceUri || !s.origin || !MIRRORABLE_ORIGINS.has(s.origin)) return false;
+        const scope = s.scope ?? 'workspace';
+        if (scope === 'global' && !cfg.includeGlobal) return false;
+        return true;
+      });
 
+    // expectedByDir keyed by ABSOLUTE directory (workspace and global produce different abs paths).
     const expectedByDir = new Map<string, Set<string>>();
-    for (const target of TARGETS) {
-      expectedByDir.set(target.dir, new Set());
+    const dirToTarget = new Map<string, AdapterTarget>();
+    const registerDir = (dirAbs: string, target: AdapterTarget) => {
+      if (!expectedByDir.has(dirAbs)) {
+        expectedByDir.set(dirAbs, new Set());
+        dirToTarget.set(dirAbs, target);
+      }
+    };
+
+    // Always seed workspace target dirs so they get pruned on host-uncheck.
+    for (const target of activeTargets) {
+      registerDir(path.join(root, target.workspaceDir), target);
+      if (cfg.includeGlobal) {
+        registerDir(target.globalDir, target);
+      }
     }
 
     for (const skill of mirrorable) {
@@ -132,13 +198,16 @@ export class SkillAdapterWriter implements vscode.Disposable {
         skipped.push(skill.id);
         continue;
       }
-      for (const target of TARGETS) {
+      const scope = skill.scope ?? 'workspace';
+      for (const target of activeTargets) {
         if (!skill.origin || !target.forOrigins.includes(skill.origin)) {
           continue;
         }
+        const dirAbs = scope === 'global' ? target.globalDir : path.join(root, target.workspaceDir);
         const filename = target.filename(skill);
-        expectedByDir.get(target.dir)!.add(filename);
-        const out = path.join(root, target.dir, filename);
+        registerDir(dirAbs, target);
+        expectedByDir.get(dirAbs)!.add(filename);
+        const out = path.join(dirAbs, filename);
         const content = target.format(skill, sourceBody);
         try {
           await fs.promises.mkdir(path.dirname(out), { recursive: true });
@@ -148,28 +217,38 @@ export class SkillAdapterWriter implements vscode.Disposable {
           }
           if (existing && !existing.includes(GENERATED_MARKER)) {
             // Don't overwrite a hand-authored file at the same path.
-            skipped.push(path.join(target.dir, filename));
+            skipped.push(out);
             continue;
           }
           await atomicWrite(out, content);
-          written.push(path.join(target.dir, filename));
+          written.push(out);
         } catch {
-          skipped.push(path.join(target.dir, filename));
+          skipped.push(out);
         }
       }
     }
 
-    // Prune previously-mirrored files/folders whose source skill is gone.
+    // Prune previously-mirrored files/folders whose source skill is gone OR
+    // whose host was just disabled. We always sweep ALL targets (not just
+    // activeTargets) so unchecking a host removes its mirrored files. Sweep
+    // both workspace and global dirs (when includeGlobal is on).
+    const sweepDirs: { dirAbs: string; target: AdapterTarget }[] = [];
     for (const target of TARGETS) {
-      const dirAbs = path.join(root, target.dir);
+      sweepDirs.push({ dirAbs: path.join(root, target.workspaceDir), target });
+      if (cfg.includeGlobal) {
+        sweepDirs.push({ dirAbs: target.globalDir, target });
+      }
+    }
+    for (const { dirAbs, target } of sweepDirs) {
       let entries: fs.Dirent[] = [];
       try {
         entries = await fs.promises.readdir(dirAbs, { withFileTypes: true });
       } catch {
         continue;
       }
+      const expectedSet = expectedByDir.get(dirAbs) ?? new Set<string>();
       const expectedRoots = new Set(
-        Array.from(expectedByDir.get(target.dir)!).map((rel) => rel.split(path.sep)[0]),
+        Array.from(expectedSet).map((rel) => rel.split(path.sep)[0]),
       );
       const prefix = target.prunePrefix ?? 'aicb-';
       for (const entry of entries) {
@@ -177,7 +256,6 @@ export class SkillAdapterWriter implements vscode.Disposable {
         if (expectedRoots.has(entry.name)) continue;
         const entryAbs = path.join(dirAbs, entry.name);
         if (entry.isDirectory()) {
-          // Verify the folder contains an AICB-generated marker file before removing it.
           let containsMarker = false;
           try {
             const inner = await fs.promises.readdir(entryAbs);
@@ -194,7 +272,7 @@ export class SkillAdapterWriter implements vscode.Disposable {
           if (!containsMarker) continue;
           try {
             await fs.promises.rm(entryAbs, { recursive: true, force: true });
-            pruned.push(path.join(target.dir, entry.name));
+            pruned.push(entryAbs);
           } catch {
             // ignore
           }
@@ -204,7 +282,7 @@ export class SkillAdapterWriter implements vscode.Disposable {
         if (!body || !body.includes(GENERATED_MARKER)) continue;
         try {
           await fs.promises.unlink(entryAbs);
-          pruned.push(path.join(target.dir, entry.name));
+          pruned.push(entryAbs);
         } catch {
           // ignore
         }

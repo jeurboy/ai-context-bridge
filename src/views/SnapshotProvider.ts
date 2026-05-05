@@ -38,7 +38,7 @@ export class SnapshotNode {
     item.iconPath = new vscode.ThemeIcon('save');
     const s = this.snapshot.state;
     item.tooltip = new vscode.MarkdownString(
-      `**${this.snapshot.label}**\n\n- Thoughts: ${s.thoughts.length}\n- Pinned files: ${s.pinnedFiles.length}\n- Skills: ${s.skills.length}\n- Kill switch: ${s.killSwitchEngaged ? 'ON' : 'off'}`,
+      `**${this.snapshot.label}**\n\n- Thoughts: ${s.thoughts.length}\n- Pinned files: ${s.pinnedFiles.length}\n- Skills: ${s.skills.length}`,
     );
     return item;
   }

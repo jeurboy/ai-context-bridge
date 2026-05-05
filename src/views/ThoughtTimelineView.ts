@@ -151,7 +151,7 @@ export class ThoughtTimelineView {
   <div id="root" class="timeline"></div>
 <script>
   const vscode = acquireVsCodeApi();
-  let lastState = { thoughts: [], skills: [], pinnedFiles: [], killSwitchEngaged:false };
+  let lastState = { thoughts: [], skills: [], pinnedFiles: [] };
   let activeModel = '__all__';
 
   function formatTime(ts) {
@@ -276,7 +276,6 @@ function serializeState(state: PersistedState) {
     thoughts: state.thoughts,
     pinnedFiles: state.pinnedFiles,
     skills: state.skills,
-    killSwitchEngaged: state.killSwitchEngaged,
   };
 }
 

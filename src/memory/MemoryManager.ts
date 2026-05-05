@@ -15,7 +15,6 @@ type ChangeKind =
   | 'thought'
   | 'pinned'
   | 'skill'
-  | 'killSwitch'
   | 'snapshot'
   | 'bulk';
 
@@ -279,21 +278,7 @@ export class MemoryManager implements vscode.Disposable {
   }
 
   effectiveStatus(skillId: string): SkillStatus | undefined {
-    if (this.state.killSwitchEngaged) {
-      return 'DISABLED';
-    }
     return this.state.skills.find((s) => s.id === skillId)?.status;
-  }
-
-  // ---------- Kill switch ----------
-
-  setKillSwitch(engaged: boolean): void {
-    if (this.state.killSwitchEngaged === engaged) {
-      return;
-    }
-    this.state.killSwitchEngaged = engaged;
-    this.touch();
-    this.persist('killSwitch');
   }
 
   // ---------- Snapshots ----------

@@ -15,7 +15,9 @@
 - **ส่งงานต่อระหว่าง AI โดยไม่ต้องเล่าใหม่** — Claude ทำเสร็จ GPT รับช่วงต่อทันที (ไฟล์ที่ปักหมุด, thoughts ล่าสุด, กฎ skill เหมือนกัน)
 - **เห็นว่าทุก model คิดอะไร เรียงตามเวลา** — Thought Timeline เดียว มี badge บอก model + handoff hint
 - **ปักหมุดไฟล์ที่กำลังใช้งาน** — มี 📌 บน tab/Explorer; auto-pin ไฟล์ที่เพิ่ง save; ไฟล์ spec (CLAUDE.md, AGENTS.md, .cursorrules, …) ถูกปักหมุดให้อัตโนมัติ
-- **ตัดสินใจว่า AI ทำอะไรได้บ้าง** — ทุก "skill" มี 3 สถานะ: ✅ Enabled / ❓ Ask / ⛔ Disabled กดปุ่ม Kill Switch ปิดทั้งหมดในคลิกเดียว
+- **ตัดสินใจว่า AI ทำอะไรได้บ้าง** — ทุก "skill" มี 3 สถานะ: ✅ Enabled / ❓ Ask / ⛔ Disabled
+- **ตั้งค่า target ได้จากที่เดียว** — Quick Actions มี Target Settings picker เดียวสำหรับ skill mirrors, context bridge files และ MCP copy targets
+- **ซ่อม context block ที่ซ้ำกัน** — `Sync All Now` dedupe เฉพาะ AICB-managed block และไม่แตะข้อความที่ user เขียนเองนอก marker
 - **ย้อนกลับได้ถ้า agent เผลอเขียนทับ** — Snapshot ของสถานะความจำทั้งหมด คลิกเดียว
 - **ข้อมูลทั้งหมดอยู่ในเครื่อง** — JSON ใน workspace ไม่มี telemetry ไม่มี cloud ไม่มี account
 
@@ -41,16 +43,16 @@ code --install-extension jeurboy.ai-context-bridge
 
 ```bash
 # VS Code / VS Code Insiders
-code --install-extension ai-context-bridge-0.2.2.vsix
+code --install-extension ai-context-bridge-0.6.0.vsix
 
 # Cursor
-cursor --install-extension ai-context-bridge-0.2.2.vsix
+cursor --install-extension ai-context-bridge-0.6.0.vsix
 
 # Windsurf
-windsurf --install-extension ai-context-bridge-0.2.2.vsix
+windsurf --install-extension ai-context-bridge-0.6.0.vsix
 
 # VSCodium
-codium --install-extension ai-context-bridge-0.2.2.vsix
+codium --install-extension ai-context-bridge-0.6.0.vsix
 ```
 
 หรือผ่าน UI ของ editor (รวม **Google Antigravity**, **Trae**, **Void**): Extensions panel → menu `...` → **Install from VSIX...**
@@ -74,11 +76,13 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 
 ## 5 นาทีแรก
 
-1. **เปิด sidebar** — คลิกไอคอน 🧠 **AI Context Bridge** ใน Activity Bar จะเห็น 3 view: **Skills**, **Pinned Files**, **Snapshots**
-2. **ปล่อยให้ auto-discovery ทำงาน** — ถ้า project มีโฟลเดอร์ `.claude/skills/` หรือ `.claude/commands/` skill จะโผล่ขึ้นมาเอง ไฟล์ spec (CLAUDE.md, AGENTS.md, .cursorrules, README, ARCHITECTURE.md, plans/, rfcs/, …) จะถูก pin ใส่กลุ่ม **Spec / context** ตอนเปิดใช้งาน
-3. **ตั้งกฎ** — ใน Skills view คลิกไอคอน ✅ / ❓ / ⛔ ข้าง skill เพื่อสลับ Enabled / Ask / Disabled ❓ Ask = มี modal ขึ้นถามทุกครั้งที่ agent อยากใช้
-4. **ส่งต่อบริบท** — ตอนเปลี่ยน AI กด `Cmd+Shift+P` / `Ctrl+Shift+P` → **AI Context Bridge: Copy Handoff Prompt** แล้ว paste ใส่ AI ตัวต่อไป — ได้ specs, ไฟล์ที่ปักหมุด, thoughts ล่าสุด, กฎ skill ครบในช็อตเดียว
-5. **(Optional) Auto-bridge** — เปิด `aiContextBridge.exportToAgentFiles` ระบบจะ maintain block หนึ่งใน `CLAUDE.md` / `AGENTS.md` / `.cursorrules` / `.windsurfrules` / `.github/copilot-instructions.md` ให้อัตโนมัติ AI ตัวไหนอ่านไฟล์ convention ของตัวเองก็ได้บริบททันที — ไม่ต้อง paste
+1. **เปิด sidebar** — คลิกไอคอน 🧠 **AI Context Bridge** ใน Activity Bar จะเห็น 5 view: **Quick Actions**, **Skills**, **Pinned Files**, **Snapshots**, **MCP Servers**
+2. **ปล่อยให้ auto-discovery ทำงาน** — skill ใต้ `.claude/skills/`, `.cursor/`, `.gemini/`, `.codex/`, `.agent/` (และ global counterpart `~/.claude/`, `~/.cursor/`, ฯลฯ เมื่อเปิด setting) ถูกตรวจจับอัตโนมัติ. ไฟล์ spec (CLAUDE.md, AGENTS.md, .cursorrules, README, ฯลฯ) ถูก pin เข้า **Spec / context** ตอน activation. MCP servers ดึงจาก config ของแต่ละ host (`.mcp.json`, `~/.claude.json`, Claude Desktop, Cursor, Gemini, Windsurf, VS Code, Kilocode, Codex)
+3. **กดปุ่มใหญ่ Sync All Now** ใน Quick Actions panel — เขียน AICB block เข้าไฟล์ agent ทุกตัว, mirror skill ข้าม agent, refresh MCP inventory ทีเดียว. ปุ่มเดียวกันยังอยู่บน toolbar ของ Pinned Files และ Snapshots รวมถึงบน status bar
+4. **ส่งต่อบริบทเมื่อจำเป็น** — ใช้ปุ่ม **Copy Bootstrap Prompt** ใน Quick Actions เพื่อ copy paths-only prompt ไปยัง agent ที่อ่านไฟล์เองได้ (Codex CLI, Aider). สำหรับ chat-box agent ที่ไม่มี file access สามารถเรียก API `copyHandoffPrompt` ได้แบบ programmatic
+5. **(Optional) ปรับ targets** — ใช้ **Target Settings** ใน Quick Actions เพื่อเลือก skill mirror targets, context bridge files และ default MCP copy targets ใน picker เดียว
+
+> **Extension นี้เป็น sync-only — ไม่ใช่ตัวจัดการสถานะ skill.** สถานะ skill (`ENABLED` / `ASK` / `DISABLED`) ถูกกำหนดอัตโนมัติจากชื่อ/description (skill ที่มี `exec`/`run`/`delete`/`push`/ฯลฯ จะเป็น `ASK`). UI โชว์สถานะให้เห็น แต่แก้ไม่ได้. ถ้าจะตัด skill ออก ให้ลบที่ source (เช่น ลบจาก `.claude/skills/...`)
 
 ---
 
@@ -88,10 +92,10 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 
 เปิดไอคอน 🧠 ใน Activity Bar
 
-**Skills view** — รวม skill ของ AI ทั้งหมดใน workspace นี้
-- Toolbar: ➕ Register skill · 🔄 Rescan skills · ⏱️ Open timeline · 💬 Add thought · ⛔ Kill switch
-- คลิกไอคอน inline ข้าง skill เพื่อสลับ ✅ Enabled / ❓ Ask / ⛔ Disabled
-- Skill ที่ตั้งเป็น **Ask** จะมี modal ขึ้นเวลา agent อยากใช้: **Allow once** / **Allow this session** / **Deny**
+**Skills view** — รวม skill ที่ auto-discovered จาก workspace นี้ (อ่านอย่างเดียว, แก้ไม่ได้)
+- Toolbar: 🔁 Rescan skills · "..." overflow (timeline, mirror, configure mirror targets)
+- สถานะ (✅ Enabled / ❓ Ask / ⛔ Disabled) ถูกตั้งอัตโนมัติจากชื่อ/description ของ skill — UI **โชว์** ให้เห็น แต่แก้ไม่ได้. skill ที่ดูเสี่ยง (match `exec | run | delete | push | …`) จะเป็น **Ask** โดยอัตโนมัติ
+- Skill ที่เป็น **Ask** จะ trigger HITL modal เมื่อ external agent เรียก API `hitl.authorize()`: **Allow once** / **Allow this session** / **Deny**
 
 **Pinned Files view** — ไฟล์ในความจำใช้งาน แบ่ง 2 กลุ่ม
 - **Spec / context** — auto-import ไม่หมดอายุ (CLAUDE.md, AGENTS.md, .cursorrules, README, plans/, …)
@@ -105,7 +109,6 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 
 ### Status bar (ซ้ายล่าง)
 
-- 🛡️ **Live** / ⛔ **KILL** — คลิกเพื่อสลับ kill switch (ถ้า ON = ทุก skill ทำตัวเป็น Disabled)
 - 🧠 **N skills · M pinned · K thoughts** — สรุปด่วน คลิกเพื่อ **Force Sync** ลงดิสก์
 - 🕒 **Timeline** — เปิด Thought Timeline
 
@@ -117,7 +120,7 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 
 ### ส่งต่อให้ AI ตัวต่อไป
 
-ทางที่เร็วที่สุด: **Command Palette → AI Context Bridge: Copy Handoff Prompt** → paste ใส่ chat ใหม่
+ทางที่เร็วที่สุด: **กดปุ่ม Copy Handoff Prompt บน title bar ของ panel Pinned Files** → paste ใส่ chat ใหม่
 
 ทางแบบ "เปิดทิ้งไว้": เปิด `aiContextBridge.exportToAgentFiles` ระบบจะเขียน block `<!-- AICB:BEGIN ... AICB:END -->` ในไฟล์ convention ที่มีอยู่ (CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, GEMINI.md, .github/copilot-instructions.md) เนื้อหานอก block แก้ได้ปกติ — ระบบแตะแค่ block ที่มาร์กไว้
 
@@ -131,28 +134,100 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 - **Cursor** → `.cursorrules`, `.cursor/rules/**/*.{md,mdc}`
 - **Windsurf** → `.windsurfrules`
 - **GitHub Copilot** → `.github/copilot-instructions.md`
-- **OpenAI Codex / Agents SDK** → `AGENTS.md`, `AGENT.md`
+- **OpenAI Codex** → `AGENTS.md` ที่ root ของ repo (project guidance), `~/.codex/AGENTS.md` (global guidance — เปิดใช้ผ่าน `aiContextBridge.agentFiles`)
+- **Agents SDK / legacy** → `AGENT.md`
 - **Google Gemini / Antigravity** → `GEMINI.md`
+- **Kilocode** → `.kilocoderules`, `.kilocode/rules/aicb.md`
+- **Generic agent (`.agent`)** → `.agent/AGENTS.md`, `.agent/rules/aicb.md`
 
 ปรับเพิ่ม/ลด target ได้ที่ setting `aiContextBridge.agentFiles` และ `aiContextBridge.specPatterns`
 
 ---
 
-## Commands (Command Palette)
+### ตารางอ้างอิง path ของ agent ทุกตัว
 
-| Command | ทำอะไร |
+แผนที่รวมทุกที่ที่ AI Context Bridge **อ่าน** (discovery) และ **เขียน** (mirror / sync) ของแต่ละ host. workspace path สัมพัทธ์กับ project root, global path อยู่ใต้ home directory ของ user
+
+#### Skill: discovery + mirror
+
+| Host | Workspace skills (อ่าน) | Global skills (อ่าน) | Mirror target (เขียน) |
+| --- | --- | --- | --- |
+| Claude Code | `.claude/skills/<name>/SKILL.md`, `.claude/commands/<name>.md` | `~/.claude/skills/<name>/SKILL.md`, `~/.claude/commands/<name>.md` | `.claude/commands/aicb-<id>.md` (mirror **จาก** Gemini origin) |
+| Cursor | `.cursor/skills/**/*.md`, `.cursor/rules/**/*.{md,mdc}` | `~/.cursor/skills/**`, `~/.cursor/rules/**` | `.cursor/rules/aicb-<id>.mdc` |
+| Gemini | `.gemini/skills/**/*.md` | `~/.gemini/skills/**/*.md` | `.gemini/skills/aicb-<id>.md` |
+| Kilocode | _(ยังไม่ scan — รับ skill ผ่าน mirror อย่างเดียว)_ | — | `.kilocode/skills/aicb-<id>/SKILL.md` |
+| Codex | `.codex/skills/<name>/SKILL.md` (non-standard — Codex ไม่ได้ spec skill folder; ใช้ convention นี้คู่ขนานกับ Claude) | `~/.codex/skills/<name>/SKILL.md` (resolve ภายใต้ `$CODEX_HOME` ถ้าตั้งไว้) | `.codex/skills/aicb-<id>/SKILL.md` |
+| Agent (`.agent`) | `.agent/skills/<name>/SKILL.md` | `~/.agent/skills/<name>/SKILL.md` | `.agent/skills/aicb-<id>/SKILL.md` |
+| Claude Desktop / Windsurf / VS Code Copilot | _(ไม่มี skill folder)_ | — | — |
+
+Mirror target ทำงานเมื่อเปิด `aiContextBridge.mirrorSkillsToOtherAgents`. ไฟล์ที่สร้างขึ้นมีหัว `AICB:GENERATED` — auto-prune เมื่อ source หาย และจะไม่ทับไฟล์ที่ user เขียนเองที่ path เดียวกัน
+
+#### MCP server: discovery + sync
+
+| Host | Workspace config | Global config | JSON key |
+| --- | --- | --- | --- |
+| Claude Code | `.mcp.json` | `~/.claude.json` | `mcpServers` |
+| Claude Desktop | _(ไม่มี)_ | macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`<br>Windows: `%APPDATA%\Claude\claude_desktop_config.json`<br>Linux: `~/.config/Claude/claude_desktop_config.json` | `mcpServers` |
+| Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` | `mcpServers` |
+| Gemini | `.gemini/settings.json` | `~/.gemini/settings.json` | `mcpServers` |
+| Windsurf | _(ไม่มี)_ | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` |
+| VS Code Copilot | `.vscode/mcp.json` | _(ใช้ user setting ของ VS Code)_ | `servers` |
+| Kilocode | `.kilocode/mcp.json` | `~/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/mcp_settings.json` (รวม Cursor / Code-Insiders ตาม OS path) | `mcpServers` |
+| Codex | `.codex/mcp.json` | `~/.codex/mcp.json` (override ด้วย `$CODEX_HOME`) | `mcpServers` |
+| Agent (`.agent`) | `.agent/mcp.json` | `~/.agent/mcp.json` | `mcpServers` |
+
+Per-server copy ใช้ไฟล์ปลายทางตามตารางนี้. entry ที่ sync จะถูก tag ด้วย `_aicbGenerated: true` + `_aicbSource: "<host>:<scope>"` เพื่อให้ track ได้รอบหน้า. entry ที่มีชื่อชนกับ hand-authored จะถาม confirm ก่อนทับ
+
+> **หมายเหตุ (Codex CLI):** Codex CLI ตัวจริงเก็บ MCP ใน `~/.codex/config.toml` (TOML format). Extension อ่าน/เขียน JSON เท่านั้น เลยใช้ `.codex/mcp.json` เป็นไฟล์ JSON คู่ขนาน — รองรับ TOML แท้ยังเป็น roadmap
+
+#### Handoff context (`.aicb` block)
+
+| Host | path ที่ bridge เขียน handoff block |
 | --- | --- |
-| `Open Thought Timeline` | เปิด timeline webview |
-| `Global Kill Switch` | สลับ disable-all |
-| `Force Sync` | บันทึก state ลงดิสก์ทันที |
-| `Register Skill` | เพิ่ม skill ด้วยมือ |
-| `Rescan Skills` | สแกน `.claude/skills` และ `.claude/commands` ใหม่ |
-| `Rescan Spec Files` | สแกนไฟล์ spec/agent ใหม่ |
-| `Pin File to Memory` | ปักหมุดไฟล์ที่เปิดอยู่ |
-| `Add Thought` | เพิ่ม thought เข้า timeline |
-| `Create Snapshot` | สร้างจุด rollback |
-| `Copy Handoff Prompt` | คัดลอก handoff bundle ไป clipboard |
-| `Bridge to Agent Files Now` | เขียน block ลงไฟล์ agent ทันที |
+| Claude Code | `CLAUDE.md` |
+| Cursor | `.cursorrules` |
+| Windsurf | `.windsurfrules` |
+| GitHub Copilot | `.github/copilot-instructions.md` |
+| OpenAI Codex | `AGENTS.md` ที่ root (project), `~/.codex/AGENTS.md` (global — เปิดเอง). `AGENTS.override.md` ที่ระดับใดๆ จะ override. Codex concat ไฟล์จาก root ลงมาหา CWD, ไฟล์ใกล้กว่า override ไฟล์ไกลกว่า. ปรับ home ได้ผ่าน env `CODEX_HOME` |
+| Agents SDK / legacy | `AGENT.md` |
+| Gemini / Antigravity | `GEMINI.md` |
+| Kilocode | `.kilocoderules`, `.kilocode/rules/aicb.md` |
+| Agent (`.agent`) | `.agent/AGENTS.md`, `.agent/rules/aicb.md` |
+
+bridge แตะเฉพาะเนื้อหาระหว่าง `<!-- AICB:BEGIN -->` และ `<!-- AICB:END -->` — ส่วนอื่นในไฟล์อยู่เหมือนเดิม. block ที่สร้างใหม่จะมี checksum metadata. `Sync All Now` จะ repair managed block ที่ซ้ำให้กลับมาเหลือ block สดอันเดียว; ส่วน background auto-sync จะ preserve block ที่ checksum ไม่ตรงไว้ก่อน เพื่อไม่ทับสิ่งที่ user แก้ใน managed area แบบเงียบๆ. ข้อความ context ที่ user copy ไปแปะเองนอก marker จะไม่ถูกลบอัตโนมัติ. โดย default จะอัพเดตเฉพาะไฟล์ที่มีอยู่แล้ว (`agentFilesOnlyExisting: true`)
+
+#### State ของ Extension เอง
+
+| ไฟล์ | หน้าที่ |
+| --- | --- |
+| `.aicb/state.json` | source of truth — thoughts, pinned files, skills |
+| `.aicb/snapshots.json` | rollback points |
+
+เปลี่ยน path ได้ที่ setting `aiContextBridge.storagePath`
+
+---
+
+## UI controls (ไม่ต้องใช้ Command Palette)
+
+ทุก action กดได้จากปุ่มในหน้าต่าง — extension จงใจไม่โผล่ใน Command Palette. 5 view ในแถบ activity bar ครอบคลุมทั้งหมด:
+
+| View | สิ่งที่อยู่ |
+| --- | --- |
+| **⚡ Quick Actions** | ปุ่มใหญ่: 🔄 **Sync All Now** (primary) · ⚙ Target Settings · 📂 Copy Bootstrap Prompt |
+| **Skills** | _Read-only inventory._ Toolbar: 🔁 Rescan · "..." overflow (timeline, mirror, unified target settings). _ไม่มี Sync All ที่นี่ — ใช้ปุ่มใหญ่ใน Quick Actions แทน_ |
+| **Pinned Files** | Toolbar: 🔄 Sync All · 📌 Pin current file · "..." overflow (rescan specs, unified target settings) |
+| **Snapshots** | Toolbar: 🔄 Sync All · 💾 Create snapshot |
+| **MCP Servers** | Toolbar: 🔁 Rescan · 🚀 Sync All to Kilocode |
+
+| Action ต่อรายการ | จุดที่กด |
+| --- | --- |
+| Unpin ไฟล์ | ไอคอน inline ที่บรรทัด pinned file |
+| Restore / Delete snapshot | ไอคอน inline ที่บรรทัด snapshot |
+| Copy MCP server ไป host อื่น | ไอคอน inline ที่บรรทัด MCP server หรือคลิกขวา |
+| Pin ไฟล์ที่เปิดอยู่ | ไอคอน pin บน title bar ของ editor |
+| Force Sync (เขียน state.json) | คลิก chip นับ state บน status bar |
+| Sync All Now (global) | คลิก **AICB ⟳ Sync All** chip บน status bar |
+| เปิด thought timeline | คลิก **AICB Timeline** chip บน status bar |
 
 ---
 
@@ -162,7 +237,6 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 | --- | --- | --- |
 | `aiContextBridge.storagePath` | `""` | path ของ `state.json` ปล่อยว่าง = `<workspace>/.aicb/state.json` |
 | `aiContextBridge.autoSync` | `true` | บันทึกอัตโนมัติทุกการเปลี่ยนแปลง ถ้า `false` ต้องคลิก **Force Sync** เอง |
-| `aiContextBridge.killSwitchEngaged` | `false` | Kill switch สติ๊กกี้ — ปิดทุก skill ไม่ว่าตั้งสถานะอะไรไว้ |
 | `aiContextBridge.autoDiscoverSkills` | `true` | สแกน `.claude/skills/**/SKILL.md` และ `.claude/commands/**/*.md` ให้อัตโนมัติ |
 | `aiContextBridge.autoPinRecentEdits` | `true` | Auto-pin ไฟล์ตอน save |
 | `aiContextBridge.autoPinDwellMinutes` | `5` | Auto-pin หลังเปิดไฟล์เป็น active editor นานเกินกี่นาที (`0` = ปิด) |
@@ -173,6 +247,8 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 | `aiContextBridge.exportToAgentFiles` | `false` | Maintain block ในไฟล์ convention ของ agent ต่างๆ |
 | `aiContextBridge.agentFiles` | CLAUDE.md, AGENTS.md, … | ไฟล์ปลายทางที่จะ bridge เข้าไป |
 | `aiContextBridge.agentFilesOnlyExisting` | `true` | อัพเดทเฉพาะไฟล์ที่มีอยู่แล้ว (ไม่สร้างใหม่) |
+| `aiContextBridge.skillMirrorHosts` | cursor, gemini, … | agent ที่จะรับ mirrored skills |
+| `aiContextBridge.mcpCopyTargets` | `[]` | default MCP config targets ที่จะถูก preselect ใน picker ตอน copy/sync |
 
 ---
 
@@ -180,7 +256,6 @@ codium --install-extension ai-context-bridge-0.2.2.vsix
 
 - **ไม่เห็น skill?** กด 🔄 **Rescan Skills** บน Skills view หรือเช็คว่าไฟล์ `.claude/skills/<name>/SKILL.md` มีอยู่จริง
 - **ตัวเลขใน status bar ไม่ตรง?** คลิกไอคอน 🧠 ใน status bar เพื่อ **Force Sync**
-- **อยากหยุดทุกอย่าง?** คลิก 🛡️ **Live** บน status bar — เปลี่ยนเป็น ⛔ **KILL** ทุก skill ทำตัวเป็น Disabled คลิกอีกครั้งเพื่อปลด
 - **ย้ายเครื่อง?** `state.json` คือ JSON ใน `<workspace>/.aicb/` commit หรือไม่ commit ก็ได้ — ของคุณ
 - **อยากเปิด chat ใหม่ให้ไม่หลงทาง?** ใช้ **Copy Handoff Prompt** เร็วที่สุด
 

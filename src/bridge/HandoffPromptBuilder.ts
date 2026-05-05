@@ -10,7 +10,7 @@ const SKILL_EXCERPT_LIMIT = 8;
 export class HandoffPromptBuilder {
   constructor(private readonly memory: MemoryManager) {}
 
-  build(thoughtLimit = 8): string {
+  build(thoughtLimit = 8, opts?: { includeGeneratedAt?: boolean }): string {
     const state = this.memory.getState();
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const lines: string[] = [];
@@ -20,9 +20,8 @@ export class HandoffPromptBuilder {
     if (root) {
       lines.push(`Workspace: \`${root}\``);
     }
-    lines.push(`Generated: ${new Date().toISOString()}`);
-    if (state.killSwitchEngaged) {
-      lines.push('Kill switch: **ENGAGED** (treat all skills as DISABLED)');
+    if (opts?.includeGeneratedAt !== false) {
+      lines.push(`Generated: ${new Date().toISOString()}`);
     }
     lines.push('');
 

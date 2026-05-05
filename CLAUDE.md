@@ -92,17 +92,163 @@ Phase 1 + 2 + 3 all wired. `tsc` clean. Smoke-tested in Extension Development Ho
 # AI Context Bridge — Handoff
 
 Workspace: `/Users/jeurboy/Documents/Workspace/memory-sync`
-Generated: 2026-05-05T05:32:28.977Z
+Generated: 2026-05-05T13:09:46.923Z
 
 ## Spec / context files (read these first)
 - `CLAUDE.md` _(spec)_ — Claude Code instructions
 - `README.md` _(spec)_ — Project README
 - `README.th.md` _(spec)_ — Project README
 
-## Working files (current focus)
-- `src/memory/types.ts` _(auto:dwell)_
-- `src/discovery/McpDiscovery.ts` _(auto:dwell)_
-- `src/memory/MemoryManager.ts` _(auto:dwell)_
+## Skills
+- **ENABLED** — autoplan, benchmark, benchmark-models, browse, canary, careful, codex, connect-chrome, context-restore, context-save, cso, design-consultation, design-html, design-review, design-shotgun, devex-review, document-release, freeze, gstack, gstack-upgrade, guard, health, investigate, landing-report, learn, make-pdf, office-hours, open-gstack-browser, pair-agent, plan-ceo-review, plan-design-review, plan-devex-review, plan-eng-review, plan-tune, qa, qa-only, retro, review, scrape, setup-browser-cookies, setup-gbrain, ship, sync-gbrain, unfreeze
+- **ASK** — land-and-deploy, setup-deploy, skillify
+
+## Skill instructions (excerpts)
+_The full content lives at the path shown. Read the source file before invoking._
+
+### autoplan _(ENABLED)_
+Source: `../../../.claude/skills/autoplan/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+## Preamble (run first)
+
+```bash
+_UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
+[ -n "$_UPD" ] && echo "$_UPD" || true
+mkdir -p ~/.gstack/sessions
+touch ~/.gstack/sessions/"$PPID"
+_SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
+
+…_(truncated)_
+
+### benchmark _(ENABLED)_
+Source: `../../../.claude/skills/benchmark/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+## Preamble (run first)
+
+```bash
+_UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
+[ -n "$_UPD" ] && echo "$_UPD" || true
+mkdir -p ~/.gstack/sessions
+touch ~/.gstack/sessions/"$PPID"
+_SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
+
+…_(truncated)_
+
+### benchmark-models _(ENABLED)_
+Source: `../../../.claude/skills/benchmark-models/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+## Preamble (run first)
+
+```bash
+_UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
+[ -n "$_UPD" ] && echo "$_UPD" || true
+mkdir -p ~/.gstack/sessions
+touch ~/.gstack/sessions/"$PPID"
+_SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
+
+…_(truncated)_
+
+### browse _(ENABLED)_
+Source: `../../../.claude/skills/browse/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+## Preamble (run first)
+
+```bash
+_UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
+[ -n "$_UPD" ] && echo "$_UPD" || true
+mkdir -p ~/.gstack/sessions
+touch ~/.gstack/sessions/"$PPID"
+_SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
+
+…_(truncated)_
+
+### canary _(ENABLED)_
+Source: `../../../.claude/skills/canary/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+## Preamble (run first)
+
+```bash
+_UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
+[ -n "$_UPD" ] && echo "$_UPD" || true
+mkdir -p ~/.gstack/sessions
+touch ~/.gstack/sessions/"$PPID"
+_SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
+
+…_(truncated)_
+
+### careful _(ENABLED)_
+Source: `../../../.claude/skills/careful/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+# /careful — Destructive Command Guardrails
+
+Safety mode is now **active**. Every bash command will be checked for destructive
+patterns before running. If a destructive command is detected, you'll be warned
+and can choose to proceed or cancel.
+
+```bash
+mkdir -p ~/.gstack/analytics
+echo '{"skill":"careful","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >>
+
+…_(truncated)_
+
+### codex _(ENABLED)_
+Source: `../../../.claude/skills/codex/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+## Preamble (run first)
+
+```bash
+_UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
+[ -n "$_UPD" ] && echo "$_UPD" || true
+mkdir -p ~/.gstack/sessions
+touch ~/.gstack/sessions/"$PPID"
+_SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
+
+…_(truncated)_
+
+### connect-chrome _(ENABLED)_
+Source: `../../../.claude/skills/connect-chrome/SKILL.md`
+
+<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
+<!-- Regenerate: bun run gen:skill-docs -->
+
+## Preamble (run first)
+
+```bash
+_UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
+[ -n "$_UPD" ] && echo "$_UPD" || true
+mkdir -p ~/.gstack/sessions
+touch ~/.gstack/sessions/"$PPID"
+_SESSIONS=$(find ~/.gstack/sessions -mmin -120 -type f 2>/dev/null | wc -l | tr -d ' ')
+find ~/.gstack/sessions -mmin +120 -type f -exec rm {} + 2>/dev/null || true
+
+…_(truncated)_
 
 ## How to use this handoff
 1. Read every file under "Spec / context files" before acting.

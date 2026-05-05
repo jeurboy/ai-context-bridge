@@ -25,6 +25,8 @@ export class McpDiscovery implements vscode.Disposable {
       '**/.vscode/mcp.json',
       '**/.gemini/settings.json',
       '**/.kilocode/mcp.json',
+      '**/.codex/mcp.json',
+      '**/.agent/mcp.json',
     ];
     for (const p of watchPatterns) {
       const w = vscode.workspace.createFileSystemWatcher(p);
@@ -68,6 +70,8 @@ export class McpDiscovery implements vscode.Disposable {
       sources.push({ host: 'vscode', scope: 'workspace', filePath: path.join(root, '.vscode', 'mcp.json') });
       sources.push({ host: 'gemini', scope: 'workspace', filePath: path.join(root, '.gemini', 'settings.json') });
       sources.push({ host: 'kilocode', scope: 'workspace', filePath: path.join(root, '.kilocode', 'mcp.json') });
+      sources.push({ host: 'codex', scope: 'workspace', filePath: path.join(root, '.codex', 'mcp.json') });
+      sources.push({ host: 'agent', scope: 'workspace', filePath: path.join(root, '.agent', 'mcp.json') });
     }
 
     if (home) {
@@ -86,6 +90,9 @@ export class McpDiscovery implements vscode.Disposable {
           filePath: path.join(root, 'globalStorage', 'kilocode.kilo-code', 'settings', 'mcp_settings.json'),
         });
       }
+      const codexHome = process.env.CODEX_HOME ?? path.join(home, '.codex');
+      sources.push({ host: 'codex', scope: 'global', filePath: path.join(codexHome, 'mcp.json') });
+      sources.push({ host: 'agent', scope: 'global', filePath: path.join(home, '.agent', 'mcp.json') });
       if (process.platform === 'darwin') {
         sources.push({
           host: 'claude-desktop',

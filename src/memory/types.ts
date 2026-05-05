@@ -35,7 +35,14 @@ export interface Skill {
   updatedAt: number;
   source?: SkillSource;
   sourceUri?: string;
-  origin?: 'claude-skill' | 'claude-command' | 'cursor-rule' | 'cursor-skill' | 'gemini-skill';
+  origin?:
+    | 'claude-skill'
+    | 'claude-command'
+    | 'cursor-rule'
+    | 'cursor-skill'
+    | 'gemini-skill'
+    | 'codex-skill'
+    | 'agent-skill';
   scope?: SkillScope;
 }
 
@@ -46,7 +53,9 @@ export type McpHost =
   | 'gemini'
   | 'windsurf'
   | 'vscode'
-  | 'kilocode';
+  | 'kilocode'
+  | 'codex'
+  | 'agent';
 
 export type McpTransport = 'stdio' | 'http' | 'sse' | 'unknown';
 
@@ -76,7 +85,6 @@ export interface PersistedState {
   thoughts: Thought[];
   pinnedFiles: PinnedFile[];
   skills: Skill[];
-  killSwitchEngaged: boolean;
   updatedAt: number;
 }
 
@@ -85,6 +93,5 @@ export const EMPTY_STATE: PersistedState = {
   thoughts: [],
   pinnedFiles: [],
   skills: [],
-  killSwitchEngaged: false,
   updatedAt: 0,
 };

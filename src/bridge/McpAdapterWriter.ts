@@ -6,6 +6,7 @@ import { kilocodeGlobalRoots } from '../discovery/McpDiscovery';
 import { McpHost, McpServer, SkillScope } from '../memory/types';
 
 export interface CopyTarget {
+  id: string;
   host: McpHost;
   scope: SkillScope;
   filePath: string;
@@ -34,11 +35,13 @@ export type ConfirmOverwrite = (
 export const AICB_MARKER_KEY = '_aicbGenerated';
 export const AICB_SOURCE_KEY = '_aicbSource';
 
+type CopyTargetDraft = Omit<CopyTarget, 'id'> & { id?: string };
+
 export class McpAdapterWriter {
   listTargets(excluding?: { host: McpHost; scope: SkillScope }): CopyTarget[] {
     const home = os.homedir();
     const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const targets: CopyTarget[] = [];
+    const targets: CopyTargetDraft[] = [];
 
     if (ws) {
       targets.push({
@@ -76,6 +79,20 @@ export class McpAdapterWriter {
         configKey: 'mcpServers',
         label: 'Kilocode · workspace (.kilocode/mcp.json)',
       });
+      targets.push({
+        host: 'codex',
+        scope: 'workspace',
+        filePath: path.join(ws, '.codex', 'mcp.json'),
+        configKey: 'mcpServers',
+        label: 'Codex · workspace (.codex/mcp.json)',
+      });
+      targets.push({
+        host: 'agent',
+        scope: 'workspace',
+        filePath: path.join(ws, '.agent', 'mcp.json'),
+        configKey: 'mcpServers',
+        label: 'Agent · workspace (.agent/mcp.json)',
+      });
     }
 
     if (home) {
@@ -110,6 +127,7 @@ export class McpAdapterWriter {
       for (const root of kilocodeGlobalRoots(home)) {
         const flavor = path.basename(path.dirname(root));
         targets.push({
+          id: `kilocode:global:${slugId(flavor)}`,
           host: 'kilocode',
           scope: 'global',
           filePath: path.join(root, 'globalStorage', 'kilocode.kilo-code', 'settings', 'mcp_settings.json'),
@@ -117,6 +135,21 @@ export class McpAdapterWriter {
           label: `Kilocode · global (${flavor})`,
         });
       }
+      const codexHome = process.env.CODEX_HOME ?? path.join(home, '.codex');
+      targets.push({
+        host: 'codex',
+        scope: 'global',
+        filePath: path.join(codexHome, 'mcp.json'),
+        configKey: 'mcpServers',
+        label: `Codex · global (${codexHome}/mcp.json)`,
+      });
+      targets.push({
+        host: 'agent',
+        scope: 'global',
+        filePath: path.join(home, '.agent', 'mcp.json'),
+        configKey: 'mcpServers',
+        label: 'Agent · global (~/.agent/mcp.json)',
+      });
 
       if (process.platform === 'darwin') {
         targets.push({
@@ -154,10 +187,11 @@ export class McpAdapterWriter {
       }
     }
 
+    const withIds = targets.map(normalizeTarget);
     if (excluding) {
-      return targets.filter((t) => !(t.host === excluding.host && t.scope === excluding.scope));
+      return withIds.filter((t) => !(t.host === excluding.host && t.scope === excluding.scope));
     }
-    return targets;
+    return withIds;
   }
 
   async copyServer(
@@ -221,6 +255,20 @@ export class McpAdapterWriter {
       };
     }
   }
+}
+
+function normalizeTarget(target: CopyTargetDraft): CopyTarget {
+  return {
+    ...target,
+    id: target.id ?? `${target.host}:${target.scope}`,
+  };
+}
+
+function slugId(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'default';
 }
 
 function buildPayload(s: McpServer): Record<string, unknown> {
