@@ -1,12 +1,16 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { AgentBridgeWriter } from './bridge/AgentBridgeWriter';
 import { HandoffPromptBuilder } from './bridge/HandoffPromptBuilder';
+import { McpAdapterWriter, CopyTarget } from './bridge/McpAdapterWriter';
 import { SkillAdapterWriter } from './bridge/SkillAdapterWriter';
 import { AutoPinManager } from './discovery/AutoPinManager';
+import { McpDiscovery } from './discovery/McpDiscovery';
 import { SkillDiscovery } from './discovery/SkillDiscovery';
 import { SpecImporter } from './discovery/SpecImporter';
 import { MemoryManager } from './memory/MemoryManager';
-import { SkillStatus } from './memory/types';
+import { McpServer, SkillStatus } from './memory/types';
+import { McpTreeProvider } from './views/McpTreeProvider';
 import { PinnedDecorationProvider } from './views/PinnedDecorationProvider';
 import { PinnedFilesProvider } from './views/PinnedFilesProvider';
 import { SkillTreeProvider } from './views/SkillTreeProvider';
@@ -39,14 +43,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<Contex
     }),
   );
 
+  // MCP discovery (used by tree provider below)
+  const mcpDiscovery = new McpDiscovery();
+  mcpDiscovery.start();
+  context.subscriptions.push(mcpDiscovery);
+
   // Tree views
   const skillTree = new SkillTreeProvider(memory);
   const pinnedTree = new PinnedFilesProvider(memory);
   const snapshotTree = new SnapshotProvider(memory);
+  const mcpTree = new McpTreeProvider(mcpDiscovery);
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('aiContextBridge.skills', skillTree),
     vscode.window.registerTreeDataProvider('aiContextBridge.pinned', pinnedTree),
     vscode.window.registerTreeDataProvider('aiContextBridge.snapshots', snapshotTree),
+    vscode.window.registerTreeDataProvider('aiContextBridge.mcp', mcpTree),
   );
 
   // Decorations
@@ -126,18 +137,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<Contex
       await memory.forceSync();
       vscode.window.setStatusBarMessage('AI Context Bridge: synced', 1500);
     }),
-    vscode.commands.registerCommand('aiContextBridge.toggleSkill', (idOrCtx: unknown) =>
-      cycleSkill(memory, resolveSkillId(idOrCtx)),
-    ),
-    vscode.commands.registerCommand('aiContextBridge.setSkillEnabled', (idOrCtx: unknown) =>
-      memory.setSkillStatus(resolveSkillId(idOrCtx) ?? '', 'ENABLED'),
-    ),
-    vscode.commands.registerCommand('aiContextBridge.setSkillDisabled', (idOrCtx: unknown) =>
-      memory.setSkillStatus(resolveSkillId(idOrCtx) ?? '', 'DISABLED'),
-    ),
-    vscode.commands.registerCommand('aiContextBridge.setSkillAsk', (idOrCtx: unknown) =>
-      memory.setSkillStatus(resolveSkillId(idOrCtx) ?? '', 'ASK'),
-    ),
+    vscode.commands.registerCommand('aiContextBridge.toggleSkill', async (idOrCtx: unknown) => {
+      if (!(await guardKillSwitch(memory))) return;
+      cycleSkill(memory, resolveSkillId(idOrCtx));
+    }),
+    vscode.commands.registerCommand('aiContextBridge.setSkillEnabled', async (idOrCtx: unknown) => {
+      if (!(await guardKillSwitch(memory))) return;
+      memory.setSkillStatus(resolveSkillId(idOrCtx) ?? '', 'ENABLED');
+    }),
+    vscode.commands.registerCommand('aiContextBridge.setSkillDisabled', async (idOrCtx: unknown) => {
+      if (!(await guardKillSwitch(memory))) return;
+      memory.setSkillStatus(resolveSkillId(idOrCtx) ?? '', 'DISABLED');
+    }),
+    vscode.commands.registerCommand('aiContextBridge.setSkillAsk', async (idOrCtx: unknown) => {
+      if (!(await guardKillSwitch(memory))) return;
+      memory.setSkillStatus(resolveSkillId(idOrCtx) ?? '', 'ASK');
+    }),
     vscode.commands.registerCommand('aiContextBridge.pinFile', (uri?: vscode.Uri) =>
       pinCurrentFile(memory, uri),
     ),
@@ -216,12 +231,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<Contex
         2000,
       );
     }),
+    vscode.commands.registerCommand('aiContextBridge.rescanMcp', async () => {
+      const count = await mcpDiscovery.rescan();
+      vscode.window.setStatusBarMessage(
+        `AI Context Bridge: rescanned MCP servers (${count} found)`,
+        2000,
+      );
+    }),
+    vscode.commands.registerCommand('aiContextBridge.copyMcpServer', async (ctx: unknown) => {
+      const server = resolveMcpServer(ctx, mcpDiscovery.getServers());
+      if (!server) {
+        vscode.window.showInformationMessage(
+          'Select an MCP server in the MCP Servers view first.',
+        );
+        return;
+      }
+      await runCopyMcpServer(server, mcpDiscovery);
+    }),
+    vscode.commands.registerCommand('aiContextBridge.syncAllToKilocode', () =>
+      runSyncAllToKilocode(memory, mcpDiscovery, skillAdapter, bridgeWriter),
+    ),
     vscode.commands.registerCommand('aiContextBridge.mirrorSkillsNow', async () => {
       const cfg = vscode.workspace.getConfiguration('aiContextBridge');
       let force = false;
       if (!cfg.get<boolean>('mirrorSkillsToOtherAgents', false)) {
         const choice = await vscode.window.showInformationMessage(
-          'Mirror Claude skills into .cursor/rules and .gemini/skills?',
+          'Mirror skills across .claude/commands, .cursor/rules, and .gemini/skills?',
           'Enable & mirror',
           'Mirror once',
           'Cancel',
@@ -297,6 +332,227 @@ function resolveSkillId(input: unknown): string | undefined {
     return obj.skill?.id ?? obj.id;
   }
   return undefined;
+}
+
+async function runSyncAllToKilocode(
+  memory: MemoryManager,
+  mcpDiscovery: McpDiscovery,
+  skillAdapter: SkillAdapterWriter,
+  bridgeWriter: AgentBridgeWriter,
+): Promise<void> {
+  const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!ws) {
+    vscode.window.showWarningMessage('Open a workspace first — Kilocode sync writes into the workspace.');
+    return;
+  }
+  const writer = new McpAdapterWriter();
+  const allTargets = writer.listTargets();
+  const kilocodeTargets = allTargets.filter((t) => t.host === 'kilocode');
+  const items = kilocodeTargets.map((t) => ({
+    label: t.label,
+    description: existsHint(t),
+    target: t,
+  }));
+  const pickedTargets = await vscode.window.showQuickPick(items, {
+    canPickMany: true,
+    title: 'Sync All → Kilocode: pick destinations',
+    placeHolder: 'Workspace target is recommended; global targets only if Kilocode is installed',
+  });
+  if (!pickedTargets || pickedTargets.length === 0) return;
+
+  const confirm = await vscode.window.showWarningMessage(
+    'This will:\n' +
+      `  • copy ALL ${mcpDiscovery.getServers().length} MCP servers (incl. plaintext env vars) into the selected Kilocode config(s)\n` +
+      '  • mirror all workspace skills into .kilocode/skills/\n' +
+      '  • write the AICB handoff section into .kilocoderules and .kilocode/rules/aicb.md\n\n' +
+      'Continue?',
+    { modal: true },
+    'Sync',
+    'Cancel',
+  );
+  if (confirm !== 'Sync') return;
+
+  const lines: string[] = [];
+
+  // ---- 1. MCP servers ----
+  const servers = dedupeByName(mcpDiscovery.getServers());
+  let mcpWritten = 0;
+  let mcpSkipped = 0;
+  let mcpError = 0;
+  for (const server of servers) {
+    const results = await writer.copyServer(
+      server,
+      pickedTargets.map((p) => p.target),
+      async () => true, // overwrite hand-authored silently in bulk mode
+    );
+    for (const r of results) {
+      if (r.status === 'error') mcpError++;
+      else if (r.status === 'skipped') mcpSkipped++;
+      else mcpWritten++;
+    }
+  }
+  lines.push(
+    `MCP: ${mcpWritten} written, ${mcpSkipped} skipped, ${mcpError} error · across ${pickedTargets.length} target(s)`,
+  );
+
+  // ---- 2. Skills mirror (workspace) ----
+  const skillResult = await skillAdapter.flushNow({ force: true });
+  lines.push(
+    `Skills: ${skillResult.written.length} written, ${skillResult.skipped.length} skipped, ${skillResult.pruned.length} pruned`,
+  );
+
+  // ---- 3. Handoff context to .kilocoderules + .kilocode/rules/aicb.md ----
+  const cfg = vscode.workspace.getConfiguration('aiContextBridge');
+  const agentFiles = cfg.get<string[]>('agentFiles', []);
+  const ensure = ['.kilocoderules', '.kilocode/rules/aicb.md'];
+  let updatedList = false;
+  const merged = agentFiles.slice();
+  for (const f of ensure) {
+    if (!merged.includes(f)) {
+      merged.push(f);
+      updatedList = true;
+    }
+  }
+  if (updatedList) {
+    await cfg.update('agentFiles', merged, vscode.ConfigurationTarget.Workspace);
+  }
+  // Allow auto-creation just for this sync so missing files get created.
+  const onlyExisting = cfg.get<boolean>('agentFilesOnlyExisting', true);
+  if (onlyExisting) {
+    await cfg.update('agentFilesOnlyExisting', false, vscode.ConfigurationTarget.Workspace);
+  }
+  try {
+    const ctx = await bridgeWriter.flushNow({ force: true });
+    lines.push(`Context: ${ctx.written.length} written, ${ctx.skipped.length} skipped`);
+  } finally {
+    if (onlyExisting) {
+      await cfg.update('agentFilesOnlyExisting', true, vscode.ConfigurationTarget.Workspace);
+    }
+  }
+
+  await mcpDiscovery.rescan();
+  memory.addThought({
+    modelId: 'aicb',
+    text: `Sync All → Kilocode\n${lines.join('\n')}`,
+  });
+  vscode.window.showInformationMessage(`Kilocode sync complete:\n${lines.join('\n')}`, { modal: false });
+}
+
+function dedupeByName(servers: McpServer[]): McpServer[] {
+  const out: McpServer[] = [];
+  const seen = new Set<string>();
+  // Prefer workspace > global so workspace overrides win when names collide.
+  const sorted = servers
+    .slice()
+    .sort((a, b) => (a.scope === b.scope ? 0 : a.scope === 'workspace' ? -1 : 1));
+  for (const s of sorted) {
+    if (seen.has(s.name)) continue;
+    seen.add(s.name);
+    out.push(s);
+  }
+  return out;
+}
+
+function resolveMcpServer(input: unknown, all: McpServer[]): McpServer | undefined {
+  if (!input || typeof input !== 'object') return undefined;
+  const obj = input as { server?: McpServer; id?: string };
+  if (obj.server && obj.server.id) return obj.server;
+  if (typeof obj.id === 'string') return all.find((s) => s.id === obj.id);
+  return undefined;
+}
+
+async function runCopyMcpServer(server: McpServer, mcpDiscovery: McpDiscovery): Promise<void> {
+  const writer = new McpAdapterWriter();
+  const targets = writer.listTargets({ host: server.host, scope: server.scope });
+  if (targets.length === 0) {
+    vscode.window.showInformationMessage('No copy targets available.');
+    return;
+  }
+  const items = targets.map((t) => ({
+    label: t.label,
+    description: existsHint(t),
+    target: t,
+  }));
+  const picked = await vscode.window.showQuickPick(items, {
+    canPickMany: true,
+    title: `Copy MCP server "${server.name}" to…`,
+    placeHolder: 'Select one or more target host configs',
+  });
+  if (!picked || picked.length === 0) return;
+
+  const hasSecrets =
+    server.env && Object.keys(server.env).some((k) => /(KEY|TOKEN|SECRET|PASS|CREDENTIAL)/i.test(k));
+  if (hasSecrets) {
+    const choice = await vscode.window.showWarningMessage(
+      `"${server.name}" contains environment variables that look like secrets. They will be written in plaintext to ${picked.length} target file(s). Continue?`,
+      { modal: true },
+      'Continue',
+      'Cancel',
+    );
+    if (choice !== 'Continue') return;
+  }
+
+  const results = await writer.copyServer(
+    server,
+    picked.map((p) => p.target),
+    async (_prior, target) => {
+      const choice = await vscode.window.showWarningMessage(
+        `"${server.name}" already exists in:\n${target.label}\n(hand-authored — no AICB marker). Overwrite?`,
+        { modal: true },
+        'Overwrite',
+        'Skip',
+      );
+      return choice === 'Overwrite';
+    },
+  );
+
+  const lines = results.map((r) => {
+    const tag =
+      r.status === 'written'
+        ? '✓ written'
+        : r.status === 'overwrote-aicb'
+        ? '✓ updated (aicb)'
+        : r.status === 'overwrote-handauthored'
+        ? '✓ overwrote'
+        : r.status === 'skipped'
+        ? '— skipped'
+        : `✗ error${r.error ? `: ${r.error}` : ''}`;
+    return `${tag} · ${r.target.label}`;
+  });
+  await mcpDiscovery.rescan();
+  vscode.window.showInformationMessage(`Copy "${server.name}":\n${lines.join('\n')}`, { modal: false });
+}
+
+function existsHint(t: CopyTarget): string {
+  try {
+    return fs.existsSync(t.filePath) ? 'exists' : 'will create';
+  } catch {
+    return '';
+  }
+}
+
+async function guardKillSwitch(memory: MemoryManager): Promise<boolean> {
+  if (!memory.getState().killSwitchEngaged) {
+    return true;
+  }
+  const RELEASE = 'Release Kill Switch';
+  const KEEP = 'Keep Engaged';
+  const choice = await vscode.window.showWarningMessage(
+    'Kill Switch is engaged — every skill is forced to DISABLED regardless of its individual status. Status changes you make now will be saved but have no effect until the kill switch is released.',
+    { modal: true },
+    RELEASE,
+    KEEP,
+  );
+  if (choice === RELEASE) {
+    const cfg = vscode.workspace.getConfiguration('aiContextBridge');
+    await cfg.update('killSwitchEngaged', false, vscode.ConfigurationTarget.Workspace);
+    memory.setKillSwitch(false);
+    return true;
+  }
+  if (choice === KEEP) {
+    return true;
+  }
+  return false;
 }
 
 async function cycleSkill(memory: MemoryManager, skillId: string | undefined): Promise<void> {
@@ -379,7 +635,7 @@ function inferActiveOwner(memory: MemoryManager): string {
   }
   const aiSkill = memory
     .getState()
-    .skills.find((s) => /^(anysphere|google\.antigravity|anthropic|openai|github\.copilot|cursor|kilocode|continue|codeium)/i.test(s.id));
+    .skills.find((s) => /^(anysphere|google\.antigravity|anthropic|openai|github\.copilot|cursor|kilocode|continue|codeium|gemini)/i.test(s.id));
   if (aiSkill?.ownerModelId) {
     return aiSkill.ownerModelId;
   }

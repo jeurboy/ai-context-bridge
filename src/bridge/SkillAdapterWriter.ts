@@ -9,10 +9,14 @@ const GENERATED_MARKER = 'AICB:GENERATED';
 interface AdapterTarget {
   /** Workspace-relative directory to write generated files into. */
   dir: string;
-  /** Filename builder: returns just the filename (no directory). */
+  /** Filename builder: returns just the filename (no directory). May contain a subpath. */
   filename: (skill: Skill) => string;
   /** Format the body. Includes the generated-marker comment header. */
   format: (skill: Skill, sourceBody: string) => string;
+  /** Only mirror skills with one of these origins into this target. */
+  forOrigins: NonNullable<Skill['origin']>[];
+  /** Match generated entries during prune (folder or filename prefix). Defaults to "aicb-". */
+  prunePrefix?: string;
 }
 
 const TARGETS: AdapterTarget[] = [
@@ -20,13 +24,34 @@ const TARGETS: AdapterTarget[] = [
     dir: '.cursor/rules',
     filename: (s) => `aicb-${slug(s.id)}.mdc`,
     format: (s, body) => formatCursor(s, body),
+    forOrigins: ['claude-skill', 'claude-command', 'gemini-skill'],
   },
   {
     dir: '.gemini/skills',
     filename: (s) => `aicb-${slug(s.id)}.md`,
     format: (s, body) => formatGeneric(s, body, 'gemini'),
+    forOrigins: ['claude-skill', 'claude-command'],
+  },
+  {
+    dir: '.claude/commands',
+    filename: (s) => `aicb-${slug(s.id)}.md`,
+    format: (s, body) => formatGeneric(s, body, 'claude'),
+    forOrigins: ['gemini-skill'],
+  },
+  {
+    dir: '.kilocode/skills',
+    filename: (s) => path.join(`aicb-${slug(s.id)}`, 'SKILL.md'),
+    format: (s, body) => formatGeneric(s, body, 'kilocode'),
+    forOrigins: ['claude-skill', 'claude-command', 'gemini-skill'],
+    prunePrefix: 'aicb-',
   },
 ];
+
+const MIRRORABLE_ORIGINS: ReadonlySet<NonNullable<Skill['origin']>> = new Set([
+  'claude-skill',
+  'claude-command',
+  'gemini-skill',
+]);
 
 export class SkillAdapterWriter implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
@@ -82,10 +107,17 @@ export class SkillAdapterWriter implements vscode.Disposable {
       return { written, skipped, pruned };
     }
 
-    // Mirror only Claude-origin skills; never re-mirror cursor-* origins (would loop).
+    // Mirror only known origins. Each target opts in to specific origins via forOrigins
+    // so a skill is never mirrored back into its own agent's directory (avoids loops).
     const mirrorable = this.memory
       .getState()
-      .skills.filter((s) => s.sourceUri && (s.origin === 'claude-skill' || s.origin === 'claude-command'));
+      .skills.filter(
+        (s) =>
+          s.sourceUri &&
+          s.origin &&
+          MIRRORABLE_ORIGINS.has(s.origin) &&
+          (s.scope ?? 'workspace') === 'workspace',
+      );
 
     const expectedByDir = new Map<string, Set<string>>();
     for (const target of TARGETS) {
@@ -101,6 +133,9 @@ export class SkillAdapterWriter implements vscode.Disposable {
         continue;
       }
       for (const target of TARGETS) {
+        if (!skill.origin || !target.forOrigins.includes(skill.origin)) {
+          continue;
+        }
         const filename = target.filename(skill);
         expectedByDir.get(target.dir)!.add(filename);
         const out = path.join(root, target.dir, filename);
@@ -124,31 +159,52 @@ export class SkillAdapterWriter implements vscode.Disposable {
       }
     }
 
-    // Prune previously-mirrored files whose source skill is gone.
+    // Prune previously-mirrored files/folders whose source skill is gone.
     for (const target of TARGETS) {
       const dirAbs = path.join(root, target.dir);
-      let entries: string[] = [];
+      let entries: fs.Dirent[] = [];
       try {
-        entries = await fs.promises.readdir(dirAbs);
+        entries = await fs.promises.readdir(dirAbs, { withFileTypes: true });
       } catch {
         continue;
       }
-      const expected = expectedByDir.get(target.dir)!;
+      const expectedRoots = new Set(
+        Array.from(expectedByDir.get(target.dir)!).map((rel) => rel.split(path.sep)[0]),
+      );
+      const prefix = target.prunePrefix ?? 'aicb-';
       for (const entry of entries) {
-        if (!entry.startsWith('aicb-')) {
+        if (!entry.name.startsWith(prefix)) continue;
+        if (expectedRoots.has(entry.name)) continue;
+        const entryAbs = path.join(dirAbs, entry.name);
+        if (entry.isDirectory()) {
+          // Verify the folder contains an AICB-generated marker file before removing it.
+          let containsMarker = false;
+          try {
+            const inner = await fs.promises.readdir(entryAbs);
+            for (const f of inner) {
+              const body = await safeRead(path.join(entryAbs, f));
+              if (body && body.includes(GENERATED_MARKER)) {
+                containsMarker = true;
+                break;
+              }
+            }
+          } catch {
+            // ignore
+          }
+          if (!containsMarker) continue;
+          try {
+            await fs.promises.rm(entryAbs, { recursive: true, force: true });
+            pruned.push(path.join(target.dir, entry.name));
+          } catch {
+            // ignore
+          }
           continue;
         }
-        if (expected.has(entry)) {
-          continue;
-        }
-        const fileAbs = path.join(dirAbs, entry);
-        const body = await safeRead(fileAbs);
-        if (!body || !body.includes(GENERATED_MARKER)) {
-          continue;
-        }
+        const body = await safeRead(entryAbs);
+        if (!body || !body.includes(GENERATED_MARKER)) continue;
         try {
-          await fs.promises.unlink(fileAbs);
-          pruned.push(path.join(target.dir, entry));
+          await fs.promises.unlink(entryAbs);
+          pruned.push(path.join(target.dir, entry.name));
         } catch {
           // ignore
         }

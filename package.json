@@ -2,7 +2,7 @@
   "name": "ai-context-bridge",
   "displayName": "AI Context Bridge",
   "description": "Shared blackboard memory and skill control center for multi-model AI workflows",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "jeurboy",
   "license": "MIT",
   "icon": "media/icon-128.png",
@@ -65,6 +65,12 @@
           "id": "aiContextBridge.snapshots",
           "name": "Snapshots",
           "icon": "$(history)"
+        },
+        {
+          "id": "aiContextBridge.mcp",
+          "name": "MCP Servers",
+          "icon": "$(server)",
+          "contextualTitle": "MCP Server Inventory"
         }
       ]
     },
@@ -167,6 +173,21 @@
         "command": "aiContextBridge.mirrorSkillsNow",
         "title": "AI Context Bridge: Mirror Skills to Other Agents",
         "icon": "$(repo-clone)"
+      },
+      {
+        "command": "aiContextBridge.rescanMcp",
+        "title": "AI Context Bridge: Rescan MCP Servers",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aiContextBridge.copyMcpServer",
+        "title": "Copy MCP Server to…",
+        "icon": "$(repo-clone)"
+      },
+      {
+        "command": "aiContextBridge.syncAllToKilocode",
+        "title": "AI Context Bridge: Sync All to Kilocode (MCP + Skills + Context)",
+        "icon": "$(rocket)"
       }
     ],
     "menus": {
@@ -225,6 +246,16 @@
           "command": "aiContextBridge.createSnapshot",
           "when": "view == aiContextBridge.snapshots",
           "group": "navigation@1"
+        },
+        {
+          "command": "aiContextBridge.rescanMcp",
+          "when": "view == aiContextBridge.mcp",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aiContextBridge.syncAllToKilocode",
+          "when": "view == aiContextBridge.mcp",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -257,6 +288,11 @@
           "command": "aiContextBridge.deleteSnapshot",
           "when": "view == aiContextBridge.snapshots && viewItem == snapshot",
           "group": "inline@2"
+        },
+        {
+          "command": "aiContextBridge.copyMcpServer",
+          "when": "view == aiContextBridge.mcp && viewItem == mcpServer",
+          "group": "inline@1"
         }
       ],
       "editor/title": [
@@ -279,6 +315,10 @@
       {
         "view": "aiContextBridge.snapshots",
         "contents": "No snapshots yet.\nSnapshots save the entire blackboard state so you can roll back if an agent corrupts it.\n[Create snapshot](command:aiContextBridge.createSnapshot)"
+      },
+      {
+        "view": "aiContextBridge.mcp",
+        "contents": "No MCP servers found.\nScans .mcp.json, .cursor/mcp.json, .vscode/mcp.json, .gemini/settings.json in the workspace, plus user-global configs (~/.claude.json, Claude Desktop, ~/.cursor/mcp.json, ~/.gemini/settings.json, Windsurf).\n[Rescan MCP](command:aiContextBridge.rescanMcp)"
       }
     ],
     "configuration": {
@@ -303,6 +343,11 @@
           "type": "boolean",
           "default": true,
           "description": "Auto-register project skills from .claude/skills/**/SKILL.md and .claude/commands/**/*.md in the workspace. User-set status is never overridden."
+        },
+        "aiContextBridge.scanGlobalSkills": {
+          "type": "boolean",
+          "default": true,
+          "description": "Also scan user-global skills installed at ~/.claude/, ~/.cursor/, and ~/.gemini/. Discovered skills are tagged scope=global and grouped separately in the Skills view. User-set status is never overridden."
         },
         "aiContextBridge.autoPinRecentEdits": {
           "type": "boolean",
@@ -386,7 +431,9 @@
             "GEMINI.md",
             ".cursorrules",
             ".windsurfrules",
-            ".github/copilot-instructions.md"
+            ".github/copilot-instructions.md",
+            ".kilocoderules",
+            ".kilocode/rules/aicb.md"
           ],
           "description": "Paths (relative to workspace root) where the handoff bridge is exported when 'exportToAgentFiles' is on."
         },

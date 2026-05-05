@@ -1,8 +1,9 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { MemoryManager } from '../memory/MemoryManager';
-import { SkillStatus } from '../memory/types';
+import { SkillScope, SkillStatus } from '../memory/types';
 
 const RISKY = /(exec|run|delete|remove|terminal|shell|kill|format|install|publish|push|commit|deploy|apply|rebuild|reset|clean)/i;
 
@@ -12,7 +13,8 @@ interface DiscoveredSkill {
   description?: string;
   status: SkillStatus;
   sourceUri: string;
-  origin: 'claude-skill' | 'claude-command' | 'cursor-rule' | 'cursor-skill';
+  origin: 'claude-skill' | 'claude-command' | 'cursor-rule' | 'cursor-skill' | 'gemini-skill';
+  scope: SkillScope;
 }
 
 const AICB_GENERATED_MARKER = 'AICB:GENERATED';
@@ -26,14 +28,17 @@ export class SkillDiscovery implements vscode.Disposable {
     void this.runScan();
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('aiContextBridge.autoDiscoverSkills')) {
+        if (
+          e.affectsConfiguration('aiContextBridge.autoDiscoverSkills') ||
+          e.affectsConfiguration('aiContextBridge.scanGlobalSkills')
+        ) {
           void this.runScan();
         }
       }),
       vscode.workspace.onDidChangeWorkspaceFolders(() => void this.runScan()),
     );
     const fsWatcher = vscode.workspace.createFileSystemWatcher(
-      '{**/.claude/skills/**/SKILL.md,**/.claude/commands/**/*.md,**/.cursor/skills/**/*.md,**/.cursor/rules/**/*.{md,mdc}}',
+      '{**/.claude/skills/**/SKILL.md,**/.claude/commands/**/*.md,**/.cursor/skills/**/*.md,**/.cursor/rules/**/*.{md,mdc},**/.gemini/skills/**/*.md}',
     );
     fsWatcher.onDidCreate(() => void this.runScan());
     fsWatcher.onDidDelete(() => void this.runScan());
@@ -67,7 +72,10 @@ export class SkillDiscovery implements vscode.Disposable {
       const prior = existing.get(s.id);
       if (prior) {
         // Don't override user-set status; refresh metadata only.
-        const sourceChanged = prior.sourceUri !== s.sourceUri || prior.origin !== s.origin;
+        const sourceChanged =
+          prior.sourceUri !== s.sourceUri ||
+          prior.origin !== s.origin ||
+          prior.scope !== s.scope;
         if (
           prior.name !== s.name ||
           prior.description !== s.description ||
@@ -83,6 +91,7 @@ export class SkillDiscovery implements vscode.Disposable {
             source: prior.source ?? 'auto',
             sourceUri: s.sourceUri,
             origin: s.origin,
+            scope: s.scope,
           });
         }
         continue;
@@ -95,6 +104,7 @@ export class SkillDiscovery implements vscode.Disposable {
         source: 'auto',
         sourceUri: s.sourceUri,
         origin: s.origin,
+        scope: s.scope,
       });
     }
     // Prune auto-discovered skills that have disappeared from the scan.
@@ -112,6 +122,88 @@ export class SkillDiscovery implements vscode.Disposable {
       out.push(...(await this.scanClaudeSkills(folder)));
       out.push(...(await this.scanClaudeCommands(folder)));
       out.push(...(await this.scanCursorSkills(folder)));
+      out.push(...(await this.scanGeminiSkills(folder)));
+    }
+    if (this.scanGlobalEnabled()) {
+      out.push(...(await this.scanGlobalSkills()));
+    }
+    return out;
+  }
+
+  private scanGlobalEnabled(): boolean {
+    return vscode.workspace
+      .getConfiguration('aiContextBridge')
+      .get<boolean>('scanGlobalSkills', true);
+  }
+
+  private async scanGlobalSkills(): Promise<DiscoveredSkill[]> {
+    const home = os.homedir();
+    if (!home) {
+      return [];
+    }
+    const out: DiscoveredSkill[] = [];
+
+    // ~/.claude/skills/<folder>/SKILL.md
+    const claudeSkillsRoot = path.join(home, '.claude', 'skills');
+    for (const dir of await listSubdirs(claudeSkillsRoot)) {
+      const skillFile = path.join(claudeSkillsRoot, dir, 'SKILL.md');
+      if (!(await fileExists(skillFile))) continue;
+      if (await isAicbGenerated(skillFile)) continue;
+      out.push(await buildSkill(skillFile, dir, 'claude-skill', 'global', dir));
+    }
+
+    // ~/.claude/commands/**/*.md
+    for (const file of await walkMarkdown(path.join(home, '.claude', 'commands'), ['.md'])) {
+      const base = path.basename(file, '.md');
+      if (base.startsWith('aicb-')) continue;
+      if (await isAicbGenerated(file)) continue;
+      out.push(await buildSkill(file, base, 'claude-command', 'global', `/${base}`));
+    }
+
+    // ~/.cursor/rules/**/*.{md,mdc}
+    for (const file of await walkMarkdown(path.join(home, '.cursor', 'rules'), ['.md', '.mdc'])) {
+      const base = path.basename(file).replace(/\.(md|mdc)$/i, '');
+      if (base.startsWith('aicb-')) continue;
+      if (await isAicbGenerated(file)) continue;
+      out.push(await buildSkill(file, base, 'cursor-rule', 'global'));
+    }
+
+    // ~/.cursor/skills/**/*.md
+    for (const file of await walkMarkdown(path.join(home, '.cursor', 'skills'), ['.md'])) {
+      const base = path.basename(file, '.md');
+      if (base.startsWith('aicb-')) continue;
+      if (await isAicbGenerated(file)) continue;
+      out.push(await buildSkill(file, base, 'cursor-skill', 'global'));
+    }
+
+    // ~/.gemini/skills/**/*.md
+    for (const file of await walkMarkdown(path.join(home, '.gemini', 'skills'), ['.md'])) {
+      const base = path.basename(file, '.md');
+      if (base.startsWith('aicb-')) continue;
+      if (await isAicbGenerated(file)) continue;
+      out.push(await buildSkill(file, base, 'gemini-skill', 'global'));
+    }
+
+    return out;
+  }
+
+  private async scanGeminiSkills(folder: vscode.WorkspaceFolder): Promise<DiscoveredSkill[]> {
+    const pattern = new vscode.RelativePattern(folder, '.gemini/skills/**/*.md');
+    const uris = await vscode.workspace.findFiles(pattern, undefined, 200);
+    const out: DiscoveredSkill[] = [];
+    for (const uri of uris) {
+      const base = path.basename(uri.fsPath, '.md');
+      if (base.startsWith('aicb-') || (await isAicbGenerated(uri.fsPath))) {
+        continue;
+      }
+      const meta = await readMarkdownMeta(uri.fsPath);
+      const id = `gemini-skill.${base}`;
+      const name = meta.title ?? base;
+      const description = meta.description;
+      const status: SkillStatus = RISKY.test(base) || (description && RISKY.test(description))
+        ? 'ASK'
+        : 'ENABLED';
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'gemini-skill', scope: 'workspace' });
     }
     return out;
   }
@@ -132,7 +224,7 @@ export class SkillDiscovery implements vscode.Disposable {
       const status: SkillStatus = RISKY.test(skillFolder) || (description && RISKY.test(description))
         ? 'ASK'
         : 'ENABLED';
-      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'claude-skill' });
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'claude-skill', scope: 'workspace' });
     }
     return out;
   }
@@ -142,10 +234,10 @@ export class SkillDiscovery implements vscode.Disposable {
     const uris = await vscode.workspace.findFiles(pattern, undefined, 200);
     const out: DiscoveredSkill[] = [];
     for (const uri of uris) {
-      if (await isAicbGenerated(uri.fsPath)) {
+      const base = path.basename(uri.fsPath, '.md');
+      if (base.startsWith('aicb-') || (await isAicbGenerated(uri.fsPath))) {
         continue;
       }
-      const base = path.basename(uri.fsPath, '.md');
       const id = `claude-command.${base}`;
       const meta = await readMarkdownMeta(uri.fsPath);
       const name = `/${base}`;
@@ -153,7 +245,7 @@ export class SkillDiscovery implements vscode.Disposable {
       const status: SkillStatus = RISKY.test(base) || (description && RISKY.test(description))
         ? 'ASK'
         : 'ENABLED';
-      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'claude-command' });
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'claude-command', scope: 'workspace' });
     }
     return out;
   }
@@ -178,7 +270,7 @@ export class SkillDiscovery implements vscode.Disposable {
       const status: SkillStatus = RISKY.test(base) || (description && RISKY.test(description))
         ? 'ASK'
         : 'ENABLED';
-      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'cursor-rule' });
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'cursor-rule', scope: 'workspace' });
     }
 
     for (const uri of skillUris) {
@@ -193,7 +285,7 @@ export class SkillDiscovery implements vscode.Disposable {
       const status: SkillStatus = RISKY.test(base) || (description && RISKY.test(description))
         ? 'ASK'
         : 'ENABLED';
-      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'cursor-skill' });
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'cursor-skill', scope: 'workspace' });
     }
 
     return out;
@@ -273,4 +365,67 @@ async function isAicbGenerated(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    const st = await fs.promises.stat(p);
+    return st.isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function listSubdirs(dir: string): Promise<string[]> {
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
+async function walkMarkdown(root: string, exts: string[]): Promise<string[]> {
+  const out: string[] = [];
+  const stack: string[] = [root];
+  while (stack.length) {
+    const dir = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        stack.push(full);
+        continue;
+      }
+      if (!e.isFile()) continue;
+      const ext = path.extname(e.name).toLowerCase();
+      if (exts.includes(ext)) {
+        out.push(full);
+      }
+    }
+    if (out.length > 1000) break; // safety cap
+  }
+  return out;
+}
+
+async function buildSkill(
+  filePath: string,
+  base: string,
+  origin: DiscoveredSkill['origin'],
+  scope: SkillScope,
+  displayName?: string,
+): Promise<DiscoveredSkill> {
+  const meta = await readMarkdownMeta(filePath);
+  const idPrefix = scope === 'global' ? 'global:' : '';
+  const id = `${idPrefix}${origin}.${base}`;
+  const name = displayName ?? meta.title ?? base;
+  const description = meta.description ?? meta.title;
+  const status: SkillStatus =
+    RISKY.test(base) || (description && RISKY.test(description)) ? 'ASK' : 'ENABLED';
+  return { id, name, description, status, sourceUri: filePath, origin, scope };
 }
