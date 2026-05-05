@@ -3,23 +3,41 @@ import * as vscode from 'vscode';
 import { MemoryManager } from '../memory/MemoryManager';
 
 const PINNED_BY = 'auto:spec';
+const FIND_LIMIT_PER_PATTERN = 500;
+const SPEC_EXCLUDE_PATTERN =
+  '{**/node_modules/**,**/.git/**,**/.hg/**,**/.svn/**,**/out/**,**/dist/**,**/build/**,**/.next/**,**/.nuxt/**,**/.turbo/**,**/.cache/**,**/coverage/**,**/.venv/**,**/venv/**,**/__pycache__/**}';
 
 const DEFAULT_PATTERNS = [
   'CLAUDE.md',
+  '**/CLAUDE.md',
   'AGENTS.md',
+  '**/AGENTS.md',
   'GEMINI.md',
+  '**/GEMINI.md',
   'AGENT.md',
+  '**/AGENT.md',
   '.cursorrules',
+  '**/.cursorrules',
   '.cursor/rules/**/*.{md,mdc}',
+  '**/.cursor/rules/**/*.{md,mdc}',
   '.windsurfrules',
+  '**/.windsurfrules',
   '.github/copilot-instructions.md',
+  '**/.github/copilot-instructions.md',
   'README.md',
+  '**/README.md',
   'README.*.md',
+  '**/README.*.md',
   'ARCHITECTURE.md',
+  '**/ARCHITECTURE.md',
   'SPEC.md',
+  '**/SPEC.md',
   'SPECIFICATION.md',
+  '**/SPECIFICATION.md',
   'PLAN.md',
+  '**/PLAN.md',
   'ROADMAP.md',
+  '**/ROADMAP.md',
   'plans/**/*.md',
   'plan/**/*.md',
   'roadmap/**/*.md',
@@ -95,7 +113,11 @@ export class SpecImporter implements vscode.Disposable {
       for (const folder of folders) {
         const rel = new vscode.RelativePattern(folder, pattern);
         try {
-          const uris = await vscode.workspace.findFiles(rel, undefined, 200);
+          const uris = await vscode.workspace.findFiles(
+            rel,
+            SPEC_EXCLUDE_PATTERN,
+            FIND_LIMIT_PER_PATTERN,
+          );
           for (const uri of uris) {
             found.add(uri.fsPath);
           }
@@ -124,7 +146,7 @@ export class SpecImporter implements vscode.Disposable {
         pinnedBy: PINNED_BY,
         auto: 'spec',
         role: 'spec',
-        note: this.describe(filePath, folders[0].uri.fsPath),
+        note: this.describe(filePath, folders),
       });
     }
 
@@ -136,19 +158,27 @@ export class SpecImporter implements vscode.Disposable {
     }
   }
 
-  private describe(filePath: string, workspaceRoot: string): string {
+  private describe(filePath: string, folders: readonly vscode.WorkspaceFolder[]): string {
+    const workspaceRoot = this.workspaceRootFor(filePath, folders);
     const rel = path.relative(workspaceRoot, filePath);
     const base = path.basename(filePath).toLowerCase();
-    if (base === 'claude.md') return 'Claude Code instructions';
-    if (base === 'agents.md' || base === 'agent.md') return 'Multi-agent instructions';
-    if (base === 'gemini.md') return 'Gemini instructions';
-    if (base === '.cursorrules') return 'Cursor rules';
-    if (base === '.windsurfrules') return 'Windsurf rules';
-    if (base === 'copilot-instructions.md') return 'GitHub Copilot instructions';
-    if (base.startsWith('readme')) return 'Project README';
-    if (base === 'architecture.md') return 'Architecture spec';
-    if (base.startsWith('spec')) return 'Specification';
+    const dir = path.dirname(rel);
+    const location = dir && dir !== '.' ? ` (${dir})` : '';
+    if (base === 'claude.md') return `Claude Code instructions${location}`;
+    if (base === 'agents.md' || base === 'agent.md') return `Multi-agent instructions${location}`;
+    if (base === 'gemini.md') return `Gemini instructions${location}`;
+    if (base === '.cursorrules') return `Cursor rules${location}`;
+    if (base === '.windsurfrules') return `Windsurf rules${location}`;
+    if (base === 'copilot-instructions.md') return `GitHub Copilot instructions${location}`;
+    if (base.startsWith('readme')) return `Project README${location}`;
+    if (base === 'architecture.md') return `Architecture spec${location}`;
+    if (base.startsWith('spec')) return `Specification${location}`;
     return `Spec: ${rel}`;
+  }
+
+  private workspaceRootFor(filePath: string, folders: readonly vscode.WorkspaceFolder[]): string {
+    const owner = folders.find((folder) => isWithin(filePath, folder.uri.fsPath));
+    return owner?.uri.fsPath ?? folders[0]?.uri.fsPath ?? path.dirname(filePath);
   }
 
   private watch(): void {
@@ -184,4 +214,9 @@ export class SpecImporter implements vscode.Disposable {
     this.watcher?.dispose();
     this.disposables.forEach((d) => d.dispose());
   }
+}
+
+function isWithin(filePath: string, root: string): boolean {
+  const rel = path.relative(root, filePath);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }

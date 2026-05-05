@@ -43,16 +43,16 @@ Download the latest `.vsix` from [Releases](https://github.com/jeurboy/ai-contex
 
 ```bash
 # VS Code / VS Code Insiders
-code --install-extension ai-context-bridge-0.6.0.vsix
+code --install-extension ai-context-bridge-0.6.1.vsix
 
 # Cursor
-cursor --install-extension ai-context-bridge-0.6.0.vsix
+cursor --install-extension ai-context-bridge-0.6.1.vsix
 
 # Windsurf
-windsurf --install-extension ai-context-bridge-0.6.0.vsix
+windsurf --install-extension ai-context-bridge-0.6.1.vsix
 
 # VSCodium
-codium --install-extension ai-context-bridge-0.6.0.vsix
+codium --install-extension ai-context-bridge-0.6.1.vsix
 ```
 
 Or via UI on any VS Code-based editor (including **Google Antigravity**, **Trae**, **Void**): Extensions panel → `...` menu → **Install from VSIX...**
@@ -77,7 +77,7 @@ Uses only the stable VS Code Extension API (`vscode` ^1.85.0), so it works in an
 ## First 5 minutes
 
 1. **Open the sidebar.** Click the 🧠 **AI Context Bridge** icon in the Activity Bar. You'll see five views: **Quick Actions**, **Skills**, **Pinned Files**, **Snapshots**, **MCP Servers**.
-2. **Let auto-discovery do its thing.** Skills under `.claude/skills/`, `.cursor/`, `.gemini/`, `.codex/`, `.agent/` (and their `~/...` global counterparts when enabled) are detected automatically. Spec files (CLAUDE.md, AGENTS.md, .cursorrules, README, ARCHITECTURE.md, plans/, rfcs/, …) are pinned to the **Spec / context** group on activation. MCP servers are pulled from each host's config file (`.mcp.json`, `~/.claude.json`, Claude Desktop, Cursor, Gemini, Windsurf, VS Code, Kilocode, Codex).
+2. **Let auto-discovery do its thing.** Skills under `.claude/skills/`, `.cursor/`, `.gemini/`, `.codex/`, `.agent/` (and their `~/...` global counterparts when enabled) are detected automatically. Spec files (CLAUDE.md, AGENTS.md, .cursorrules, README, ARCHITECTURE.md, plans/, rfcs/, …) are pinned to the **Spec / context** group on activation, including matching files inside nested subprojects. MCP servers are pulled from each host's config file (`.mcp.json`, `~/.claude.json`, Claude Desktop, Cursor, Gemini, Windsurf, VS Code, Kilocode, Codex).
 3. **Hit Sync All Now.** The big button in the Quick Actions panel writes the AICB block into every configured agent file (CLAUDE.md, AGENTS.md, .cursorrules, …), mirrors skills cross-agent, and refreshes the MCP inventory in one click. The same button also lives on the Pinned Files and Snapshots toolbars, plus the status bar.
 4. **Hand off when needed.** Use **Copy Bootstrap Prompt** in Quick Actions to copy a paths-only prompt into agents that read files themselves (Codex CLI, Aider). For agents in a chat box that don't have file access, the Skill API also exposes `copyHandoffPrompt` programmatically.
 5. **(Optional) Tune the targets.** Use **Target Settings** in Quick Actions to choose skill mirror targets, context bridge files, and default MCP copy targets in one picker.
@@ -156,8 +156,8 @@ The full map of where AI Context Bridge **reads from** (discovery) and **writes 
 | Cursor | `.cursor/skills/**/*.md`, `.cursor/rules/**/*.{md,mdc}` | `~/.cursor/skills/**`, `~/.cursor/rules/**` | `.cursor/rules/aicb-<id>.mdc` |
 | Gemini | `.gemini/skills/**/*.md` | `~/.gemini/skills/**/*.md` | `.gemini/skills/aicb-<id>.md` |
 | Kilocode | (no read scan yet — uses workspace skills via mirror) | — | `.kilocode/skills/aicb-<id>/SKILL.md` |
-| Codex | `.codex/skills/<name>/SKILL.md` (non-standard — Codex itself does not specify a skill folder; convention used here for parity with Claude) | `~/.codex/skills/<name>/SKILL.md` (resolved under `$CODEX_HOME` if set) | `.codex/skills/aicb-<id>/SKILL.md` |
-| Agent (`.agent`) | `.agent/skills/<name>/SKILL.md` | `~/.agent/skills/<name>/SKILL.md` | `.agent/skills/aicb-<id>/SKILL.md` |
+| Codex | `.codex/skills/<name>/SKILL.md`, `.codex/skill/<name>/SKILL.md` (non-standard — Codex itself does not specify a skill folder; convention used here for parity with Claude) | `~/.codex/skills/<name>/SKILL.md`, `~/.codex/skill/<name>/SKILL.md` (resolved under `$CODEX_HOME` if set) | `.codex/skills/aicb-<id>/SKILL.md` |
+| Agent (`.agent`) | `.agent/skills/<name>/SKILL.md`, `.agent/skill/<name>/SKILL.md` | `~/.agent/skills/<name>/SKILL.md`, `~/.agent/skill/<name>/SKILL.md` | `.agent/skills/aicb-<id>/SKILL.md` |
 | Claude Desktop / Windsurf / VS Code Copilot | _(not applicable — these hosts don't expose skill folders)_ | — | — |
 
 Mirror targets are gated by the `aiContextBridge.mirrorSkillsToOtherAgents` setting. Generated files carry an `AICB:GENERATED` marker — they're auto-pruned when the source disappears, and AICB will never overwrite a hand-authored file at the same path.
@@ -237,7 +237,6 @@ Every action is reachable from a button — the extension is intentionally not e
 | --- | --- | --- |
 | `aiContextBridge.storagePath` | `""` | Where `state.json` lives. Empty = `<workspace>/.aicb/state.json` |
 | `aiContextBridge.autoSync` | `true` | Save on every change. Off = click **Force Sync** when you want to persist |
-| `aiContextBridge.autoDiscoverSkills` | `true` | Scan `.claude/skills/**/SKILL.md` and `.claude/commands/**/*.md` automatically |
 | `aiContextBridge.autoPinRecentEdits` | `true` | Auto-pin a file when you save it |
 | `aiContextBridge.autoPinDwellMinutes` | `5` | Auto-pin after a file has been the active editor this many minutes (`0` = off) |
 | `aiContextBridge.autoPinExpireMinutes` | `60` | Auto-pins expire after this many minutes of inactivity (manual pins never expire) |

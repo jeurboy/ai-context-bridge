@@ -2,7 +2,7 @@
   "name": "ai-context-bridge",
   "displayName": "AI Context Bridge",
   "description": "Shared blackboard memory and skill control center for multi-model AI workflows",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "jeurboy",
   "license": "MIT",
   "icon": "media/icon-128.png",
@@ -383,7 +383,7 @@
       },
       {
         "view": "aiContextBridge.pinned",
-        "contents": "No files pinned to memory.\nSpec files (CLAUDE.md, AGENTS.md, .cursorrules, README, ARCHITECTURE.md, docs/spec) are auto-imported.\n[Pin current file](command:aiContextBridge.pinFile)\n[Rescan spec files](command:aiContextBridge.rescanSpecs)\n[Copy handoff prompt](command:aiContextBridge.copyHandoffPrompt)"
+        "contents": "No files pinned to memory.\nSpec files (CLAUDE.md, AGENTS.md, .cursorrules, README, ARCHITECTURE.md, docs/spec) are auto-imported from the root and nested subprojects.\n[Pin current file](command:aiContextBridge.pinFile)\n[Rescan spec files](command:aiContextBridge.rescanSpecs)\n[Copy handoff prompt](command:aiContextBridge.copyHandoffPrompt)"
       },
       {
         "view": "aiContextBridge.snapshots",
@@ -406,11 +406,6 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically persist state changes to disk"
-        },
-        "aiContextBridge.autoDiscoverSkills": {
-          "type": "boolean",
-          "default": true,
-          "description": "Auto-register project skills from .claude/skills/**/SKILL.md and .claude/commands/**/*.md in the workspace. User-set status is never overridden."
         },
         "aiContextBridge.scanGlobalSkills": {
           "type": "boolean",
@@ -443,7 +438,7 @@
         "aiContextBridge.autoImportSpecFiles": {
           "type": "boolean",
           "default": true,
-          "description": "Auto-detect and pin known agent/spec files (CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, README, ARCHITECTURE.md, docs/spec/**). These are bridged across agents."
+          "description": "Auto-detect and pin known agent/spec files (CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, README, ARCHITECTURE.md, docs/spec/**) from the workspace root and nested subprojects. These are bridged across agents."
         },
         "aiContextBridge.specPatterns": {
           "type": "array",
@@ -452,20 +447,35 @@
           },
           "default": [
             "CLAUDE.md",
+            "**/CLAUDE.md",
             "AGENTS.md",
+            "**/AGENTS.md",
             "GEMINI.md",
+            "**/GEMINI.md",
             "AGENT.md",
+            "**/AGENT.md",
             ".cursorrules",
+            "**/.cursorrules",
             ".cursor/rules/**/*.{md,mdc}",
+            "**/.cursor/rules/**/*.{md,mdc}",
             ".windsurfrules",
+            "**/.windsurfrules",
             ".github/copilot-instructions.md",
+            "**/.github/copilot-instructions.md",
             "README.md",
+            "**/README.md",
             "README.*.md",
+            "**/README.*.md",
             "ARCHITECTURE.md",
+            "**/ARCHITECTURE.md",
             "SPEC.md",
+            "**/SPEC.md",
             "SPECIFICATION.md",
+            "**/SPECIFICATION.md",
             "PLAN.md",
+            "**/PLAN.md",
             "ROADMAP.md",
+            "**/ROADMAP.md",
             "plans/**/*.md",
             "plan/**/*.md",
             "roadmap/**/*.md",

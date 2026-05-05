@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 — 2026-05-05
+
+- **Nested context discovery** — spec/context files are detected inside subprojects, with dependency and build directories excluded.
+- **Skill discovery hardening** — skill auto-discovery is always on, scans nested agent folders, and recognizes both `.codex/skills/` and `.codex/skill/`.
+- **Version metadata** — package and lockfile are now aligned at `0.6.1`.
+
 ## 0.6.0 — 2026-05-05
 
 - **Quick Actions view** — new first-stop sidebar panel with big buttons for `Sync All Now`, `Target Settings`, and `Copy Bootstrap Prompt`.
