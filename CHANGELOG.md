@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.4.0 — 2026-05-05
+
+- **MCP Servers panel** — new sidebar view that scans MCP server configs across every host you have installed:
+  - Workspace: `.mcp.json` (Claude Code), `.cursor/mcp.json`, `.vscode/mcp.json` (Copilot), `.gemini/settings.json`, `.kilocode/mcp.json`
+  - Global: `~/.claude.json`, Claude Desktop config (macOS / Windows / Linux), `~/.cursor/mcp.json`, `~/.gemini/settings.json`, `~/.codeium/windsurf/mcp_config.json`, Kilocode `globalStorage`
+  - Grouped by **Host → Scope (Workspace / Global)**, tooltip shows transport + command/args + env (secrets matching `KEY|TOKEN|SECRET|PASS|CREDENTIAL` are redacted), click opens the source config file
+- **Per-server explicit copy** — right-click any MCP server → "Copy MCP Server to…" → multi-select target hosts. Atomic merge into the destination JSON (preserves all other keys), tagged with `_aicbGenerated: true` + `_aicbSource` for round-trip prune. Hand-authored entries prompt before overwrite; AICB-generated entries are silently refreshed; secret env vars trigger a plaintext-write warning
+- **Sync All → Kilocode** (one-click unified handoff) — single command that:
+  1. copies every discovered MCP server into the selected Kilocode config(s)
+  2. mirrors every workspace skill into `.kilocode/skills/aicb-<id>/SKILL.md`
+  3. exports the AICB handoff block into `.kilocoderules` and `.kilocode/rules/aicb.md`
+  Available from the MCP Servers view title bar 🚀 or the command palette as `AI Context Bridge: Sync All to Kilocode`
+- **Global skill discovery** — skills installed at `~/.claude/skills/`, `~/.claude/commands/`, `~/.cursor/{rules,skills}/`, `~/.gemini/skills/` are now scanned alongside workspace skills. The Skills view automatically groups into **Workspace** and **Global** when both are present. Toggle via `aiContextBridge.scanGlobalSkills` (default true). Global skill IDs are namespaced with `global:` to prevent collisions
+- **Kill switch guard** — when the kill switch is engaged, attempting to enable/disable/ask a skill now opens a modal that lets you Release the kill switch in place, Keep it engaged (and save the change for later), or Cancel. No more silent "nothing happens" when every skill is forced to DISABLED
+- **Skill mirror prune** — `SkillAdapterWriter` now correctly prunes folder-per-skill targets (e.g. `.kilocode/skills/aicb-<id>/`) by recursively removing AICB-marked directories
+- New commands: `Rescan MCP Servers`, `Copy MCP Server to…`, `Sync All to Kilocode (MCP + Skills + Context)`
+- New types: `McpServer`, `McpHost` (claude-code · claude-desktop · cursor · gemini · windsurf · vscode · kilocode), `McpTransport`, `SkillScope`
+- Settings: `aiContextBridge.scanGlobalSkills`, default `agentFiles` adds `.kilocoderules` and `.kilocode/rules/aicb.md`
+
+## 0.3.0 — 2026-05-05
+
+- **Cross-agent skill mirroring** — opt-in setting `aiContextBridge.mirrorSkillsToOtherAgents` writes a managed adapter file for each Claude/Gemini skill into the conventions of every other agent so all of them see the same instructions:
+  - `.cursor/rules/aicb-<id>.mdc` (with `globs` / `alwaysApply` frontmatter)
+  - `.gemini/skills/aicb-<id>.md`
+  - `.claude/commands/aicb-<id>.md` (for Gemini-origin skills)
+  - Generated files carry an `AICB:GENERATED` marker; pruned automatically when the source is removed; never overwrites a hand-authored file at the same path. Source of truth always stays in the original `.claude/` / `.gemini/` location
+- **Cursor skill discovery** — scans `.cursor/rules/**/*.{md,mdc}` and `.cursor/skills/**/*.md` and registers them as skills (`cursor-rule.<name>` / `cursor-skill.<name>`)
+- **Gemini skill discovery** — scans `.gemini/skills/**/*.md` (`gemini-skill.<name>`)
+- **Skill metadata refresh** — auto-discovery now updates `name`, `description`, `sourceUri`, `origin` on every scan without ever overriding the user-set `status`. Manual registrations take precedence over auto.
+- New command: `AI Context Bridge: Mirror Skills to Other Agents` (one-shot force flush regardless of the toggle)
+- New skill fields: `source` (auto · manual), `sourceUri`, `origin`
+
 ## 0.2.2 — 2026-05-05
 
 - **Rescan Skills** button on Skills view title bar — forces a manual `.claude/skills` + `.claude/commands` rescan even when `autoDiscoverSkills` is off; status bar shows the count found
