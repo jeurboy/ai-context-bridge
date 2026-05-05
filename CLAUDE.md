@@ -92,7 +92,7 @@ Phase 1 + 2 + 3 all wired. `tsc` clean. Smoke-tested in Extension Development Ho
 # AI Context Bridge — Handoff
 
 Workspace: `/Users/jeurboy/Documents/Workspace/memory-sync`
-Generated: 2026-05-04T18:12:11.588Z
+Generated: 2026-05-05T03:42:22.338Z
 
 ## Spec / context files (read these first)
 - `CLAUDE.md` _(spec)_ — Claude Code instructions
@@ -100,7 +100,8 @@ Generated: 2026-05-04T18:12:11.588Z
 - `README.th.md` _(spec)_ — Project README
 
 ## Working files (current focus)
-- `package.json` _(auto:recent-edit)_
+- `package.json` _(auto:dwell)_
+- `.vscode/settings.json` _(auto:recent-edit)_
 
 ## How to use this handoff
 1. Read every file under "Spec / context files" before acting.

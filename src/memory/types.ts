@@ -33,6 +33,8 @@ export interface Skill {
   ownerModelId?: string;
   updatedAt: number;
   source?: SkillSource;
+  sourceUri?: string;
+  origin?: 'claude-skill' | 'claude-command' | 'cursor-rule' | 'cursor-skill';
 }
 
 export interface Snapshot {

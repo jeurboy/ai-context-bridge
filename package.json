@@ -2,7 +2,7 @@
   "name": "ai-context-bridge",
   "displayName": "AI Context Bridge",
   "description": "Shared blackboard memory and skill control center for multi-model AI workflows",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "publisher": "jeurboy",
   "license": "MIT",
   "icon": "media/icon-128.png",
@@ -162,6 +162,11 @@
         "command": "aiContextBridge.rescanSkills",
         "title": "AI Context Bridge: Rescan Skills",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "aiContextBridge.mirrorSkillsNow",
+        "title": "AI Context Bridge: Mirror Skills to Other Agents",
+        "icon": "$(repo-clone)"
       }
     ],
     "menus": {
@@ -210,6 +215,11 @@
           "command": "aiContextBridge.bridgeNow",
           "when": "view == aiContextBridge.pinned",
           "group": "navigation@4"
+        },
+        {
+          "command": "aiContextBridge.mirrorSkillsNow",
+          "when": "view == aiContextBridge.skills",
+          "group": "navigation@5"
         },
         {
           "command": "aiContextBridge.createSnapshot",
@@ -384,12 +394,17 @@
           "type": "boolean",
           "default": true,
           "description": "When true, only update agent files that already exist (don't auto-create them)."
+        },
+        "aiContextBridge.mirrorSkillsToOtherAgents": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mirror Claude skills (.claude/skills/**/SKILL.md, .claude/commands/**/*.md) into .cursor/rules/aicb-*.mdc and .gemini/skills/aicb-*.md so other agents can read the same instructions. Generated files carry an AICB:GENERATED marker, are pruned when the source is deleted, and never overwrite hand-authored files at the same path. Source of truth stays in .claude/."
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "yarn compile",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "tsc --noEmit",

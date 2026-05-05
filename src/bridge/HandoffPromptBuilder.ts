@@ -1,7 +1,11 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { MemoryManager } from '../memory/MemoryManager';
 import { PinnedFile, Skill, Thought } from '../memory/types';
+
+const SKILL_EXCERPT_CHARS = 600;
+const SKILL_EXCERPT_LIMIT = 8;
 
 export class HandoffPromptBuilder {
   constructor(private readonly memory: MemoryManager) {}
@@ -65,6 +69,29 @@ export class HandoffPromptBuilder {
         lines.push(`- **${status}** — ${names}`);
       }
       lines.push('');
+
+      const enabled = (skillsByStatus.get('ENABLED') ?? []).filter((s) => s.sourceUri);
+      const ask = (skillsByStatus.get('ASK') ?? []).filter((s) => s.sourceUri);
+      const candidates = [...enabled, ...ask].slice(0, SKILL_EXCERPT_LIMIT);
+      if (candidates.length > 0) {
+        lines.push('## Skill instructions (excerpts)');
+        lines.push(
+          '_The full content lives at the path shown. Read the source file before invoking._',
+        );
+        lines.push('');
+        for (const skill of candidates) {
+          const excerpt = readExcerpt(skill.sourceUri!);
+          if (!excerpt) {
+            continue;
+          }
+          const rel = root ? path.relative(root, skill.sourceUri!) : skill.sourceUri!;
+          lines.push(`### ${skill.name || skill.id} _(${skill.status})_`);
+          lines.push(`Source: \`${rel}\``);
+          lines.push('');
+          lines.push(excerpt);
+          lines.push('');
+        }
+      }
     }
 
     lines.push('## How to use this handoff');
@@ -89,6 +116,24 @@ export class HandoffPromptBuilder {
       ? ` _(${root ? path.relative(root, t.sourceReference) : t.sourceReference})_`
       : '';
     return `- **[${t.modelId}]** ${ts}${ref}\n  > ${t.text.replace(/\n/g, '\n  > ')}`;
+  }
+}
+
+function readExcerpt(filePath: string): string | undefined {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    // Strip YAML frontmatter to skip metadata that already appears in the skill list.
+    const stripped = raw.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '');
+    const trimmed = stripped.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    if (trimmed.length <= SKILL_EXCERPT_CHARS) {
+      return trimmed;
+    }
+    return trimmed.slice(0, SKILL_EXCERPT_CHARS).replace(/\s+\S*$/, '') + '\n\n…_(truncated)_';
+  } catch {
+    return undefined;
   }
 }
 

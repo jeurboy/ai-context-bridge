@@ -11,7 +11,11 @@ interface DiscoveredSkill {
   name: string;
   description?: string;
   status: SkillStatus;
+  sourceUri: string;
+  origin: 'claude-skill' | 'claude-command' | 'cursor-rule' | 'cursor-skill';
 }
+
+const AICB_GENERATED_MARKER = 'AICB:GENERATED';
 
 export class SkillDiscovery implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
@@ -29,7 +33,7 @@ export class SkillDiscovery implements vscode.Disposable {
       vscode.workspace.onDidChangeWorkspaceFolders(() => void this.runScan()),
     );
     const fsWatcher = vscode.workspace.createFileSystemWatcher(
-      '{**/.claude/skills/**/SKILL.md,**/.claude/commands/**/*.md,**/.cursor/skills/**/*.md}',
+      '{**/.claude/skills/**/SKILL.md,**/.claude/commands/**/*.md,**/.cursor/skills/**/*.md,**/.cursor/rules/**/*.{md,mdc}}',
     );
     fsWatcher.onDidCreate(() => void this.runScan());
     fsWatcher.onDidDelete(() => void this.runScan());
@@ -63,7 +67,13 @@ export class SkillDiscovery implements vscode.Disposable {
       const prior = existing.get(s.id);
       if (prior) {
         // Don't override user-set status; refresh metadata only.
-        if (prior.name !== s.name || prior.description !== s.description || !prior.source) {
+        const sourceChanged = prior.sourceUri !== s.sourceUri || prior.origin !== s.origin;
+        if (
+          prior.name !== s.name ||
+          prior.description !== s.description ||
+          !prior.source ||
+          sourceChanged
+        ) {
           this.memory.registerSkill({
             id: s.id,
             name: s.name,
@@ -71,6 +81,8 @@ export class SkillDiscovery implements vscode.Disposable {
             status: prior.status,
             ownerModelId: prior.ownerModelId,
             source: prior.source ?? 'auto',
+            sourceUri: s.sourceUri,
+            origin: s.origin,
           });
         }
         continue;
@@ -81,6 +93,8 @@ export class SkillDiscovery implements vscode.Disposable {
         description: s.description,
         status: s.status,
         source: 'auto',
+        sourceUri: s.sourceUri,
+        origin: s.origin,
       });
     }
     // Prune auto-discovered skills that have disappeared from the scan.
@@ -97,6 +111,7 @@ export class SkillDiscovery implements vscode.Disposable {
     for (const folder of folders) {
       out.push(...(await this.scanClaudeSkills(folder)));
       out.push(...(await this.scanClaudeCommands(folder)));
+      out.push(...(await this.scanCursorSkills(folder)));
     }
     return out;
   }
@@ -106,6 +121,9 @@ export class SkillDiscovery implements vscode.Disposable {
     const uris = await vscode.workspace.findFiles(pattern, undefined, 200);
     const out: DiscoveredSkill[] = [];
     for (const uri of uris) {
+      if (await isAicbGenerated(uri.fsPath)) {
+        continue;
+      }
       const skillFolder = path.basename(path.dirname(uri.fsPath));
       const id = `claude-skill.${skillFolder}`;
       const meta = await readMarkdownMeta(uri.fsPath);
@@ -114,7 +132,7 @@ export class SkillDiscovery implements vscode.Disposable {
       const status: SkillStatus = RISKY.test(skillFolder) || (description && RISKY.test(description))
         ? 'ASK'
         : 'ENABLED';
-      out.push({ id, name, description, status });
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'claude-skill' });
     }
     return out;
   }
@@ -124,6 +142,9 @@ export class SkillDiscovery implements vscode.Disposable {
     const uris = await vscode.workspace.findFiles(pattern, undefined, 200);
     const out: DiscoveredSkill[] = [];
     for (const uri of uris) {
+      if (await isAicbGenerated(uri.fsPath)) {
+        continue;
+      }
       const base = path.basename(uri.fsPath, '.md');
       const id = `claude-command.${base}`;
       const meta = await readMarkdownMeta(uri.fsPath);
@@ -132,8 +153,49 @@ export class SkillDiscovery implements vscode.Disposable {
       const status: SkillStatus = RISKY.test(base) || (description && RISKY.test(description))
         ? 'ASK'
         : 'ENABLED';
-      out.push({ id, name, description, status });
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'claude-command' });
     }
+    return out;
+  }
+
+  private async scanCursorSkills(folder: vscode.WorkspaceFolder): Promise<DiscoveredSkill[]> {
+    const out: DiscoveredSkill[] = [];
+    const rulesPattern = new vscode.RelativePattern(folder, '.cursor/rules/**/*.{md,mdc}');
+    const skillsPattern = new vscode.RelativePattern(folder, '.cursor/skills/**/*.md');
+    const ruleUris = await vscode.workspace.findFiles(rulesPattern, undefined, 200);
+    const skillUris = await vscode.workspace.findFiles(skillsPattern, undefined, 200);
+
+    for (const uri of ruleUris) {
+      const base = path.basename(uri.fsPath).replace(/\.(md|mdc)$/i, '');
+      // Skip AICB-generated mirror files (they have `aicb-` prefix or marker).
+      if (base.startsWith('aicb-') || (await isAicbGenerated(uri.fsPath))) {
+        continue;
+      }
+      const meta = await readMarkdownMeta(uri.fsPath);
+      const id = `cursor-rule.${base}`;
+      const name = meta.title ?? base;
+      const description = meta.description;
+      const status: SkillStatus = RISKY.test(base) || (description && RISKY.test(description))
+        ? 'ASK'
+        : 'ENABLED';
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'cursor-rule' });
+    }
+
+    for (const uri of skillUris) {
+      const base = path.basename(uri.fsPath, '.md');
+      if (base.startsWith('aicb-') || (await isAicbGenerated(uri.fsPath))) {
+        continue;
+      }
+      const meta = await readMarkdownMeta(uri.fsPath);
+      const id = `cursor-skill.${base}`;
+      const name = meta.title ?? base;
+      const description = meta.description;
+      const status: SkillStatus = RISKY.test(base) || (description && RISKY.test(description))
+        ? 'ASK'
+        : 'ENABLED';
+      out.push({ id, name, description, status, sourceUri: uri.fsPath, origin: 'cursor-skill' });
+    }
+
     return out;
   }
 
@@ -202,4 +264,13 @@ function matchField(yaml: string, key: string): string | undefined {
   const m = yaml.match(re);
   if (!m) return undefined;
   return m[1].trim().replace(/^['"]|['"]$/g, '');
+}
+
+async function isAicbGenerated(filePath: string): Promise<boolean> {
+  try {
+    const buf = await fs.promises.readFile(filePath, 'utf8');
+    return buf.slice(0, 1000).includes(AICB_GENERATED_MARKER);
+  } catch {
+    return false;
+  }
 }

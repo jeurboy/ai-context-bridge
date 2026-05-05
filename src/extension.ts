@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { AgentBridgeWriter } from './bridge/AgentBridgeWriter';
 import { HandoffPromptBuilder } from './bridge/HandoffPromptBuilder';
+import { SkillAdapterWriter } from './bridge/SkillAdapterWriter';
 import { AutoPinManager } from './discovery/AutoPinManager';
 import { SkillDiscovery } from './discovery/SkillDiscovery';
 import { SpecImporter } from './discovery/SpecImporter';
@@ -75,6 +76,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<Contex
   const bridgeWriter = new AgentBridgeWriter(memory, handoff);
   bridgeWriter.start();
   context.subscriptions.push(bridgeWriter);
+
+  const skillAdapter = new SkillAdapterWriter(memory);
+  skillAdapter.start();
+  context.subscriptions.push(skillAdapter);
 
   // Status bar — three separate clickable items
   const killBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 102);
@@ -209,6 +214,53 @@ export async function activate(context: vscode.ExtensionContext): Promise<Contex
       vscode.window.setStatusBarMessage(
         `AI Context Bridge: rescanned skills (${count} found)`,
         2000,
+      );
+    }),
+    vscode.commands.registerCommand('aiContextBridge.mirrorSkillsNow', async () => {
+      const cfg = vscode.workspace.getConfiguration('aiContextBridge');
+      let force = false;
+      if (!cfg.get<boolean>('mirrorSkillsToOtherAgents', false)) {
+        const choice = await vscode.window.showInformationMessage(
+          'Mirror Claude skills into .cursor/rules and .gemini/skills?',
+          'Enable & mirror',
+          'Mirror once',
+          'Cancel',
+        );
+        if (choice === 'Cancel' || !choice) {
+          return;
+        }
+        if (choice === 'Enable & mirror') {
+          try {
+            await cfg.update(
+              'mirrorSkillsToOtherAgents',
+              true,
+              vscode.ConfigurationTarget.Workspace,
+            );
+          } catch (err) {
+            vscode.window.showWarningMessage(
+              `Couldn't persist setting (${err instanceof Error ? err.message : String(err)}). Mirroring once.`,
+            );
+            force = true;
+          }
+        } else {
+          force = true;
+        }
+      }
+      const result = await skillAdapter.flushNow({ force });
+      const parts: string[] = [];
+      if (result.written.length > 0) {
+        parts.push(`wrote ${result.written.length}`);
+      }
+      if (result.pruned.length > 0) {
+        parts.push(`pruned ${result.pruned.length}`);
+      }
+      if (result.skipped.length > 0) {
+        parts.push(`skipped ${result.skipped.length}`);
+      }
+      vscode.window.showInformationMessage(
+        parts.length === 0
+          ? 'Skill mirror: nothing to do.'
+          : `Skill mirror: ${parts.join(', ')}.`,
       );
     }),
   );

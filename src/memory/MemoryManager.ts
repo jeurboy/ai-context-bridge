@@ -197,6 +197,12 @@ export class MemoryManager implements vscode.Disposable {
       existing.name = skill.name;
       existing.description = skill.description;
       existing.ownerModelId = skill.ownerModelId;
+      if (skill.sourceUri !== undefined) {
+        existing.sourceUri = skill.sourceUri;
+      }
+      if (skill.origin !== undefined) {
+        existing.origin = skill.origin;
+      }
       // Manual registration always wins — promote auto → manual, never demote.
       if (skill.source === 'manual' || !existing.source) {
         existing.source = skill.source ?? 'manual';
@@ -213,6 +219,8 @@ export class MemoryManager implements vscode.Disposable {
       status: skill.status,
       ownerModelId: skill.ownerModelId,
       source: skill.source ?? 'manual',
+      sourceUri: skill.sourceUri,
+      origin: skill.origin,
       updatedAt: Date.now(),
     };
     this.state.skills.push(created);
