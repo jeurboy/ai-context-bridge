@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { AgentBridgeWriter, BridgeFlushResult, resolveAgentFilePath } from './bridge/AgentBridgeWriter';
 import { BootstrapPromptBuilder } from './bridge/BootstrapPromptBuilder';
 import { HandoffPromptBuilder } from './bridge/HandoffPromptBuilder';
+import { ReloadPromptBuilder } from './bridge/ReloadPromptBuilder';
 import { McpAdapterWriter, CopyTarget } from './bridge/McpAdapterWriter';
 import { SkillAdapterWriter } from './bridge/SkillAdapterWriter';
 import { AutoPinManager } from './discovery/AutoPinManager';
@@ -159,6 +160,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<Contex
       await vscode.env.clipboard.writeText(md);
       vscode.window.showInformationMessage(
         'Bootstrap prompt copied — paste into an agent that needs to read the context/skill/MCP files itself (Codex CLI, Aider, etc.).',
+      );
+    }),
+    vscode.commands.registerCommand('aiContextBridge.copyReloadPrompt', async () => {
+      const md = new ReloadPromptBuilder(memory, mcpDiscovery).build();
+      await vscode.env.clipboard.writeText(md);
+      vscode.window.showInformationMessage(
+        'Reload prompt copied — paste into the new agent to refresh bridged context after a switch.',
       );
     }),
     vscode.commands.registerCommand('aiContextBridge.bridgeNow', () =>

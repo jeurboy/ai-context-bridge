@@ -43,16 +43,16 @@ Download the latest `.vsix` from [Releases](https://github.com/jeurboy/ai-contex
 
 ```bash
 # VS Code / VS Code Insiders
-code --install-extension ai-context-bridge-0.6.1.vsix
+code --install-extension ai-context-bridge-0.6.2.vsix
 
 # Cursor
-cursor --install-extension ai-context-bridge-0.6.1.vsix
+cursor --install-extension ai-context-bridge-0.6.2.vsix
 
 # Windsurf
-windsurf --install-extension ai-context-bridge-0.6.1.vsix
+windsurf --install-extension ai-context-bridge-0.6.2.vsix
 
 # VSCodium
-codium --install-extension ai-context-bridge-0.6.1.vsix
+codium --install-extension ai-context-bridge-0.6.2.vsix
 ```
 
 Or via UI on any VS Code-based editor (including **Google Antigravity**, **Trae**, **Void**): Extensions panel → `...` menu → **Install from VSIX...**
@@ -79,7 +79,7 @@ Uses only the stable VS Code Extension API (`vscode` ^1.85.0), so it works in an
 1. **Open the sidebar.** Click the 🧠 **AI Context Bridge** icon in the Activity Bar. You'll see five views: **Quick Actions**, **Skills**, **Pinned Files**, **Snapshots**, **MCP Servers**.
 2. **Let auto-discovery do its thing.** Skills under `.claude/skills/`, `.cursor/`, `.gemini/`, `.codex/`, `.agent/` (and their `~/...` global counterparts when enabled) are detected automatically. Spec files (CLAUDE.md, AGENTS.md, .cursorrules, README, ARCHITECTURE.md, plans/, rfcs/, …) are pinned to the **Spec / context** group on activation, including matching files inside nested subprojects. MCP servers are pulled from each host's config file (`.mcp.json`, `~/.claude.json`, Claude Desktop, Cursor, Gemini, Windsurf, VS Code, Kilocode, Codex).
 3. **Hit Sync All Now.** The big button in the Quick Actions panel writes the AICB block into every configured agent file (CLAUDE.md, AGENTS.md, .cursorrules, …), mirrors skills cross-agent, and refreshes the MCP inventory in one click. The same button also lives on the Pinned Files and Snapshots toolbars, plus the status bar.
-4. **Hand off when needed.** Use **Copy Bootstrap Prompt** in Quick Actions to copy a paths-only prompt into agents that read files themselves (Codex CLI, Aider). For agents in a chat box that don't have file access, the Skill API also exposes `copyHandoffPrompt` programmatically.
+4. **Hand off when needed.** Use **Copy Bootstrap Prompt** in Quick Actions to copy a paths-only prompt into agents that read files themselves (Codex CLI, Aider). When you're switching agents mid-session and the new one already worked here, use **Copy Reload Prompt** instead — it tells the agent to refresh from `.aicb/state.json` and re-read recent thoughts so it doesn't act on stale context. For agents in a chat box that don't have file access, the Skill API also exposes `copyHandoffPrompt` programmatically.
 5. **(Optional) Tune the targets.** Use **Target Settings** in Quick Actions to choose skill mirror targets, context bridge files, and default MCP copy targets in one picker.
 
 > **This extension is sync-only — it does not manage skill state.** Skill statuses (`ENABLED` / `ASK` / `DISABLED`) are determined automatically by name/description (skills with `exec`/`run`/`delete`/`push`/etc. become `ASK`). The UI displays them; you cannot edit them. To exclude a skill, remove it at the source (delete from `.claude/skills/...`).
@@ -213,7 +213,7 @@ Every action is reachable from a button — the extension is intentionally not e
 
 | View | What's on it |
 | --- | --- |
-| **⚡ Quick Actions** | Big buttons: 🔄 **Sync All Now** (primary) · ⚙ Target Settings · 📂 Copy Bootstrap Prompt |
+| **⚡ Quick Actions** | Big buttons: 🔄 **Sync All Now** (primary) · ⚙ Target Settings · 📂 Copy Bootstrap Prompt · ↻ Copy Reload Prompt |
 | **Skills** | _Read-only inventory._ Toolbar: 🔁 Rescan · "..." overflow (timeline, mirror, unified target settings). _No Sync All here — use the big button in Quick Actions._ |
 | **Pinned Files** | Toolbar: 🔄 Sync All · 📌 Pin current file · "..." overflow (rescan specs, unified target settings) |
 | **Snapshots** | Toolbar: 🔄 Sync All · 💾 Create snapshot |

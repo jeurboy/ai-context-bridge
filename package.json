@@ -2,7 +2,7 @@
   "name": "ai-context-bridge",
   "displayName": "AI Context Bridge",
   "description": "Shared blackboard memory and skill control center for multi-model AI workflows",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "publisher": "jeurboy",
   "license": "MIT",
   "icon": "media/icon-128.png",
@@ -136,6 +136,11 @@
         "command": "aiContextBridge.copyBootstrapPrompt",
         "title": "AI Context Bridge: Copy Bootstrap Prompt (manual read)",
         "icon": "$(file-symlink-file)"
+      },
+      {
+        "command": "aiContextBridge.copyReloadPrompt",
+        "title": "AI Context Bridge: Copy Reload Prompt (agent switch)",
+        "icon": "$(refresh)"
       },
       {
         "command": "aiContextBridge.bridgeNow",
@@ -320,6 +325,10 @@
         },
         {
           "command": "aiContextBridge.copyBootstrapPrompt",
+          "when": "false"
+        },
+        {
+          "command": "aiContextBridge.copyReloadPrompt",
           "when": "false"
         },
         {

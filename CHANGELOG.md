@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2 — 2026-05-06
+
+- **Reload Context quick action** — new `Copy Reload Prompt` button in Quick Actions copies a prompt that tells the next agent to refresh from `.aicb/state.json`, re-read pinned spec/working files, and review recent thoughts before resuming work. Designed for mid-session agent switches where the inlined Handoff is too heavy and the Bootstrap "first-time" framing doesn't fit.
+- New command: `AI Context Bridge: Copy Reload Prompt (agent switch)` (invoked via the Quick Actions button; hidden from the Command Palette per the existing copy-prompt pattern).
+- **Version metadata** — package and lockfile are now aligned at `0.6.2`.
+
 ## 0.6.1 — 2026-05-05
 
 - **Nested context discovery** — spec/context files are detected inside subprojects, with dependency and build directories excluded.

@@ -43,16 +43,16 @@ code --install-extension jeurboy.ai-context-bridge
 
 ```bash
 # VS Code / VS Code Insiders
-code --install-extension ai-context-bridge-0.6.1.vsix
+code --install-extension ai-context-bridge-0.6.2.vsix
 
 # Cursor
-cursor --install-extension ai-context-bridge-0.6.1.vsix
+cursor --install-extension ai-context-bridge-0.6.2.vsix
 
 # Windsurf
-windsurf --install-extension ai-context-bridge-0.6.1.vsix
+windsurf --install-extension ai-context-bridge-0.6.2.vsix
 
 # VSCodium
-codium --install-extension ai-context-bridge-0.6.1.vsix
+codium --install-extension ai-context-bridge-0.6.2.vsix
 ```
 
 หรือผ่าน UI ของ editor (รวม **Google Antigravity**, **Trae**, **Void**): Extensions panel → menu `...` → **Install from VSIX...**
@@ -79,7 +79,7 @@ codium --install-extension ai-context-bridge-0.6.1.vsix
 1. **เปิด sidebar** — คลิกไอคอน 🧠 **AI Context Bridge** ใน Activity Bar จะเห็น 5 view: **Quick Actions**, **Skills**, **Pinned Files**, **Snapshots**, **MCP Servers**
 2. **ปล่อยให้ auto-discovery ทำงาน** — skill ใต้ `.claude/skills/`, `.cursor/`, `.gemini/`, `.codex/`, `.agent/` (และ global counterpart `~/.claude/`, `~/.cursor/`, ฯลฯ เมื่อเปิด setting) ถูกตรวจจับอัตโนมัติ. ไฟล์ spec (CLAUDE.md, AGENTS.md, .cursorrules, README, ฯลฯ) ถูก pin เข้า **Spec / context** ตอน activation รวมถึงไฟล์ที่อยู่ใน subproject/dir ย่อย. MCP servers ดึงจาก config ของแต่ละ host (`.mcp.json`, `~/.claude.json`, Claude Desktop, Cursor, Gemini, Windsurf, VS Code, Kilocode, Codex)
 3. **กดปุ่มใหญ่ Sync All Now** ใน Quick Actions panel — เขียน AICB block เข้าไฟล์ agent ทุกตัว, mirror skill ข้าม agent, refresh MCP inventory ทีเดียว. ปุ่มเดียวกันยังอยู่บน toolbar ของ Pinned Files และ Snapshots รวมถึงบน status bar
-4. **ส่งต่อบริบทเมื่อจำเป็น** — ใช้ปุ่ม **Copy Bootstrap Prompt** ใน Quick Actions เพื่อ copy paths-only prompt ไปยัง agent ที่อ่านไฟล์เองได้ (Codex CLI, Aider). สำหรับ chat-box agent ที่ไม่มี file access สามารถเรียก API `copyHandoffPrompt` ได้แบบ programmatic
+4. **ส่งต่อบริบทเมื่อจำเป็น** — ใช้ปุ่ม **Copy Bootstrap Prompt** ใน Quick Actions เพื่อ copy paths-only prompt ไปยัง agent ที่อ่านไฟล์เองได้ (Codex CLI, Aider). ถ้า**สลับ agent กลางทาง**และ agent ตัวใหม่เคยทำงานในโปรเจกต์นี้แล้ว ใช้ **Copy Reload Prompt** แทน — prompt จะสั่งให้ agent re-read จาก `.aicb/state.json` และ recent thoughts เพื่อไม่ให้ทำงานบน context เก่า. สำหรับ chat-box agent ที่ไม่มี file access สามารถเรียก API `copyHandoffPrompt` ได้แบบ programmatic
 5. **(Optional) ปรับ targets** — ใช้ **Target Settings** ใน Quick Actions เพื่อเลือก skill mirror targets, context bridge files และ default MCP copy targets ใน picker เดียว
 
 > **Extension นี้เป็น sync-only — ไม่ใช่ตัวจัดการสถานะ skill.** สถานะ skill (`ENABLED` / `ASK` / `DISABLED`) ถูกกำหนดอัตโนมัติจากชื่อ/description (skill ที่มี `exec`/`run`/`delete`/`push`/ฯลฯ จะเป็น `ASK`). UI โชว์สถานะให้เห็น แต่แก้ไม่ได้. ถ้าจะตัด skill ออก ให้ลบที่ source (เช่น ลบจาก `.claude/skills/...`)
@@ -213,7 +213,7 @@ bridge แตะเฉพาะเนื้อหาระหว่าง `<!-- 
 
 | View | สิ่งที่อยู่ |
 | --- | --- |
-| **⚡ Quick Actions** | ปุ่มใหญ่: 🔄 **Sync All Now** (primary) · ⚙ Target Settings · 📂 Copy Bootstrap Prompt |
+| **⚡ Quick Actions** | ปุ่มใหญ่: 🔄 **Sync All Now** (primary) · ⚙ Target Settings · 📂 Copy Bootstrap Prompt · ↻ Copy Reload Prompt |
 | **Skills** | _Read-only inventory._ Toolbar: 🔁 Rescan · "..." overflow (timeline, mirror, unified target settings). _ไม่มี Sync All ที่นี่ — ใช้ปุ่มใหญ่ใน Quick Actions แทน_ |
 | **Pinned Files** | Toolbar: 🔄 Sync All · 📌 Pin current file · "..." overflow (rescan specs, unified target settings) |
 | **Snapshots** | Toolbar: 🔄 Sync All · 💾 Create snapshot |

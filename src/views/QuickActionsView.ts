@@ -93,6 +93,10 @@ function renderHtml(webview: vscode.Webview): string {
     <span class="icon">📂</span>
     <span class="label">Copy Bootstrap Prompt<span class="sub">paths only — agent reads files itself</span></span>
   </button>
+  <button class="btn" data-cmd="aiContextBridge.copyReloadPrompt">
+    <span class="icon">↻</span>
+    <span class="label">Copy Reload Prompt<span class="sub">refresh context after agent switch</span></span>
+  </button>
 
 <script>
   const vscode = acquireVsCodeApi();
